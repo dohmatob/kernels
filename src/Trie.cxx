@@ -99,7 +99,7 @@ Combinatorics::Kernel Combinatorics::MismatchTrie::compute_kernel(unsigned int d
 }
 
 
-unsigned short  Combinatorics::MismatchTrie::node_callback(const Combinatorics::Trie& node) const
+unsigned short Combinatorics::MismatchTrie::node_callback(const Combinatorics::Trie& node) const
 {
   if(!is_root(node))
     {
