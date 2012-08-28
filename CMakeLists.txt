@@ -8,9 +8,25 @@ set(kernels_VERSION_REVISION "0")
 set(kernels_VERSION_AGE "1")
 set(kernels_VERSION "${kernels_VERSION_CURRENT}.${kernels_VERSION_REVISION}.${kernels_VERSION_AGE}")
 
+##-- configurable options
+option(BUILD_DOC "Use Doxygen to build API documentation" OFF)
+
 if(UNIX)
   #-- set bin
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+  #-- doxygen
+  if(BUILD_DOC)
+    find_package(Doxygen)
+    if(DOXYGEN_FOUND)
+      configure_file(Doxyfile.in ${PROJECT_BINARY_DIR}/Doxyfile @ONLY IMMEDIATE)
+      add_custom_target(doc ALL
+        COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/Doxyfile
+        SOURCES ${PROJECT_BINARY_DIR}/Doxyfile)
+    else(DOXYGEN_FOUND)
+      message(FATAL_ERROR "Doxygen is needed to build API documentation. Please install it correctly.")
+    endif(DOXYGEN_FOUND)
+  endif(BUILD_DOC)
   
   #-- Boost
   find_package(Boost 1.42 COMPONENTS unit_test_framework REQUIRED)

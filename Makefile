@@ -111,6 +111,19 @@ Trie/fast:
 	$(MAKE) -f CMakeFiles/Trie.dir/build.make CMakeFiles/Trie.dir/build
 .PHONY : Trie/fast
 
+#=============================================================================
+# Target rules for targets named doc
+
+# Build rule for target.
+doc: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 doc
+.PHONY : doc
+
+# fast build rule for target.
+doc/fast:
+	$(MAKE) -f CMakeFiles/doc.dir/build.make CMakeFiles/doc.dir/build
+.PHONY : doc/fast
+
 src/Trie.o: src/Trie.cxx.o
 .PHONY : src/Trie.o
 
@@ -142,6 +155,7 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... Trie"
+	@echo "... doc"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... src/Trie.o"

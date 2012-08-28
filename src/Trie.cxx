@@ -68,7 +68,7 @@ void Combinatorics::MismatchTrie::expand_trie(Combinatorics::Trie& trie, unsigne
 
 void Combinatorics::MismatchTrie::expand_trie(Combinatorics::Trie& trie, unsigned int depth, unsigned int nchildren)
 {
-  if(!check_node(trie))
+  if(!node_callback(trie))
     {
       goto end;
     }
@@ -88,7 +88,8 @@ void Combinatorics::MismatchTrie::expand_trie(Combinatorics::Trie& trie, unsigne
   return;
 }
 
-Combinatorics::Kernel Combinatorics::MismatchTrie::compute_kernel(unsigned int d, unsigned int k, const std::vector<Combinatorics::Sequence >& training_seqs)
+Combinatorics::Kernel Combinatorics::MismatchTrie::compute_kernel(unsigned int d, unsigned int k, 
+								  const std::vector<Combinatorics::Sequence >& training_seqs)
 {
   Kernel kernel = ublas::zero_matrix<double>(training_seqs.size(), training_seqs.size());
 
@@ -98,7 +99,7 @@ Combinatorics::Kernel Combinatorics::MismatchTrie::compute_kernel(unsigned int d
 }
 
 
-unsigned short  Combinatorics::MismatchTrie::check_node(const Combinatorics::Trie& node) const
+unsigned short  Combinatorics::MismatchTrie::node_callback(const Combinatorics::Trie& node) const
 {
   if(!is_root(node))
     {
