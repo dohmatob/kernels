@@ -6,12 +6,8 @@
 :Author: DOHMATOB Elvis Dopgima
 """
 
-import sys
 import unittest
 from numpy import array, zeros, nonzero, all, meshgrid, outer
-
-sys.path.append('../../HMM/python')
-from probability import discrete_sample
 
 class Trie:
     def __init__(self, label=-1, parent=0):
@@ -19,17 +15,11 @@ class Trie:
         self._meta = {}
         self._rootpath = []
         self._children = dict()
-        self._parent = parent
-
-        if parent:
-            self._rootpath = parent.get_rootpath()
-            self._meta = parent.get_meta()
+        self.set_parent(parent)
           
         if not self.is_root():
             self._rootpath.append(label);
         
-        if parent:
-            parent.add_child(self)
     
     def is_root(self):
         return (self._parent == 0)
@@ -136,6 +126,11 @@ class Trie:
 
     def set_parent(self, parent):
         self._parent = parent
+
+        if parent:
+            self._rootpath = parent.get_rootpath()
+            self._meta = parent.get_meta()
+            parent.add_child(self)
 
     def add_child(self, child):
         self._children[child.get_label()] = child
