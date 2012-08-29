@@ -16,10 +16,9 @@ class Trie:
         self._rootpath = []
         self._children = dict()
         self.set_parent(parent)
-          
+
         if not self.is_root():
-            self._rootpath.append(label);
-        
+            self._rootpath.append(label);        
     
     def is_root(self):
         return (self._parent == 0)
