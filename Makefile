@@ -8,7 +8,7 @@ default_target: all
 #=============================================================================
 # Special targets provided by cmake.
 
-# Disable implicit rules so canonical targets will work.
+# Disable implicit rules so canoncical targets will work.
 .SUFFIXES:
 
 # Remove some rules from gmake that .SUFFIXES does not remove.
@@ -39,10 +39,10 @@ RM = /usr/bin/cmake -E remove -f
 CMAKE_EDIT_COMMAND = /usr/bin/ccmake
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/jeanpaul/DOP/CODE/kernels
+CMAKE_SOURCE_DIR = /home/dop/CODE/kernels
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/jeanpaul/DOP/CODE/kernels
+CMAKE_BINARY_DIR = /home/dop/CODE/kernels
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -69,9 +69,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeanpaul/DOP/CODE/kernels/CMakeFiles /home/jeanpaul/DOP/CODE/kernels/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dop/CODE/kernels/CMakeFiles /home/dop/CODE/kernels/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/jeanpaul/DOP/CODE/kernels/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dop/CODE/kernels/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
