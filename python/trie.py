@@ -79,9 +79,7 @@ class Trie:
         if go_ahead:
             # is this a surving feature k-mer ?
             if k == 0:
-                # print "".join([_alphabet[x] for x in self._rootpath])   
-
-                # compute the source weights of the training sequences
+                # compute the source weights, this far,  of the training sequences
                 source_weights = array([len(lmers) for lmers in self._meta.values()])
                 
                 # compute the contributions of this feature k-mer to the kernel
@@ -91,7 +89,7 @@ class Trie:
                 kernel[meshgrid(self._meta.keys(), self._meta.keys())] += contributions
                 rootpathcount += 1
             else:
-                # recursively expand all children of current node
+                # recursively expand all children 
                 for j in xrange(k):
                     # span a new child
                     _ = Trie(j, self) 
@@ -137,8 +135,9 @@ class Trie:
         kernel = zeros((n, n))
         
         # expand trie, constrainted by the training data, and update kernel along the way
-        self.expand(k, d, training_data=training_data, m=m, kernel=kernel)
-        # self.do_leafs()
+        _, rc = self.expand(k, d, training_data=training_data, m=m, kernel=kernel)
+
+        print "%d %d-mers survived"%(rc, k)
 
         return kernel
 
@@ -194,7 +193,7 @@ class TestTrie(unittest.TestCase):
         training_data.append([0,1,0,1,0,1,0,0,1,0,0,0,1])
         training_data.append([1,1,0,1,0,1,0,0,1,0,0,0,1])
         
-
+        print
         print trie.compute_kernel(d, k, training_data=training_data, m=1)
 
         # for seq in training_data:
