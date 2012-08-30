@@ -102,7 +102,7 @@ class Trie:
                         child_padding += '|'
                     ga, rc = self._children[j].expand(k-1, d, training_data, m, kernel, padding=child_padding)                        
 
-                    # update the counts for this node
+                    # update the counts 
                     rootpathcount += rc
                         
         return go_ahead, rootpathcount
