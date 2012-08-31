@@ -7,9 +7,10 @@
 """
 
 import unittest
-from numpy import array, zeros, nonzero, all, meshgrid, outer
+from numpy import array, zeros, nonzero, all, meshgrid, outer, sqrt, ndindex
+from sklearn import svm
 
-_alphabet = [chr(x) for x in xrange(ord('A'), ord('Z'))]
+_alphabet = [chr(x) for x in xrange(ord('a'), ord('z'))]
 
 class Trie:
     def __init__(self, label=-1, parent=0):
@@ -48,7 +49,7 @@ class Trie:
                 mistmatched_lmers = nonzero(training_data[index][lmers[:,1]] != self._label)[0]
                 lmers[mistmatched_lmers,2] += 1
 
-                # increment of length of all the lmers
+                # increment length of all the lmers
                 lmers[:,1] += 1
 
                 # kill all lmers which have mismatches above the threshold, m
@@ -64,15 +65,35 @@ class Trie:
         return len(self._meta) > 0 
         
     def expand(self, k, d, training_data, m, kernel, padding=" "):
+        '''
+        Recursive method to grow a Trie object.
+
+        Parameters
+        ----------
+        k : int
+            depth limit of Trie growth
+        d : int
+            branching degree of Trie (noumber of children nodes to grow)
+        training_data : numpy_like 2D array
+            training data 
+        m : int
+            mismatch tolerance (so it won't be a problem if two words differ by at most m letters)
+        kernel : numpy_like 2D array
+            shared reference to kernel being computed
+        padding : string
+            marker for trie layout display 
+
+        '''
+                   
         rootpathcount = 0 # number of survived feature-kmers
 
         # inspect node and update its meta data
         go_ahead = self.inspect(training_data, m)
 
         if self.is_root():
-            print "root\r\n \\"
+            print "//\r\n \\"
         else:
-            print padding[:-1] + '+-' + self._rootpath + '/'
+            print padding[:-1] + '+-' + self._rootpath + ',' + str(len(self._meta.keys())) + '/'
         padding += ' '
 
         # does this node survive ?
@@ -84,13 +105,13 @@ class Trie:
                 
                 # compute the contributions of this feature k-mer to the kernel
                 contributions = outer(source_weights, source_weights)
-
+                
                 # update the kernel
                 kernel[meshgrid(self._meta.keys(), self._meta.keys())] += contributions
                 rootpathcount += 1
             else:
                 # recursively expand all children 
-                for j in xrange(k):
+                for j in xrange(d):
                     # span a new child
                     _ = Trie(j, self) 
 
@@ -103,7 +124,8 @@ class Trie:
                     ga, rc = self._children[j].expand(k-1, d, training_data, m, kernel, padding=child_padding)                        
 
                     # update the counts 
-                    rootpathcount += rc
+                    if ga:
+                        rootpathcount += rc
                         
         return go_ahead, rootpathcount
 
@@ -112,7 +134,7 @@ class Trie:
 
     def do_leafs(self, padding=' '):
         if self.is_root():
-            print "root\r\n \\"            
+            print "root/\r\n \\"            
         else:
             print padding[:-1] + '+-' + self._rootpath + '/'
         padding += ' '
@@ -130,6 +152,26 @@ class Trie:
                 print padding + '+-' + child.get_rootpath()
 
     def compute_kernel(self, k, d, training_data, m=0):
+        '''
+        Method to compute mistmatch string kernel.
+
+        Parameters
+        ----------
+        k : int
+            depth limit of Trie growth
+        d : int
+            branching degree of Trie (noumber of children nodes to grow)
+        training_data : numpy_like 2D array
+            training data 
+        m : int (default 0)
+            mismatch tolerance (so it won't be a problem if two words differ by at most m letters)
+        kernel : numpy_like 2D array
+            shared reference to kernel being computed
+        padding : string
+            marker for trie layout display 
+
+        '''
+
         n = len(training_data)
         # intialize kernel
         kernel = zeros((n, n))
@@ -137,7 +179,14 @@ class Trie:
         # expand trie, constrainted by the training data, and update kernel along the way
         _, rc = self.expand(k, d, training_data=training_data, m=m, kernel=kernel)
 
-        print "%d %d-mers survived"%(rc, k)
+        # normalize kernel to remove 'length bias'
+        N = len(training_data)
+        for x, y in ndindex((N,N)):
+            q = kernel[x,x]*kernel[y,y]
+            if q:
+                kernel[x,y] /= sqrt(q)
+
+        print "%d out of %d (%d,%d)-mers survived"%(rc, d**k, k, m)
 
         return kernel
 
@@ -183,21 +232,60 @@ class TestTrie(unittest.TestCase):
     def test_compute_kernel(self):
         trie = Trie()
         k = 2
-        d = 7
-        training_data = []
-        training_data.append([0,1,1,1,0,1,0,1,1,0,0,0,1])
-        training_data.append([1,1,0,1,0,1,0,0,1,0,0,0,0])
-        training_data.append([0,1,1,1,1,0,0,0,1,0,0,0,1])
-        training_data.append([1,1,1,1,0,1,0,0,1,1,1,1,0])
-        training_data.append([1,1,0,1,0,1,0,0,1,0,0,0,0])
-        training_data.append([0,1,0,1,0,1,0,0,1,0,0,0,1])
-        training_data.append([1,1,0,1,0,1,0,0,1,0,0,0,1])
-        
-        print
-        print trie.compute_kernel(d, k, training_data=training_data, m=1)
+        d = 6
+        m = 1
 
+        X = []
+        X.append([0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1])
+        X.append([1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0])
+        X.append([1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1])
+        X.append([1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1])
+        X.append([1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1])
+        X.append([1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,1])
+        X.append([0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
+        X.append([0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
+        X.append([0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
+        X.append([0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
+        X.append([0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0])
+        X.append([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1])
+        X.append([0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0])
+        X.append([1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1])
+        X.append([0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1])
+        X.append([0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1])
+        X.append([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0])
+        X.append([1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1])
+        X.append([1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1])
+        X.append([0,0,0,0,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0])
+        X.append([0,0,1,0,0,0,0,1,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1])
+        X.append([0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0])
+        X.append([1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1])
+        X.append([1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1])
+        X.append([0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1])
+        X.append([0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0])
+
+
+        Y = [0,0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,2,0,0,1,1,2,0,0,2,2]
+
+        kernel = trie.compute_kernel(d, k, training_data=X, m=m)
+        print
+        print kernel
+        print 
+
+        # construct SVM classifier with our mismatch string kernel
+        print "Constructing SVM classifier with our mismatch string kernel .."
+        svc = svm.SVC(kernel='precomputed')
+        print 'Done.'
+        print 
+
+        # fit
+        print "Fitting against training data .."
+        svc.fit(kernel, Y)
+        print "Done (fitting accuracy: %.2f"%(len(nonzero(svc.predict(kernel) == Y)[0])*100.00/len(Y)) + "%)."
+        print 
+        
+        
         # for seq in training_data:
         #     print "".join([str(x) for x in seq])
-
+        
 if __name__ == '__main__':
     unittest.main()

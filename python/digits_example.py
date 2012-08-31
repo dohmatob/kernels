@@ -13,14 +13,13 @@ from numpy.random import shuffle
 from numpy import savetxt, nonzero
 from sklearn import svm
 
-
 if __name__ == '__main__':
     print "\r\n\t\t --[ %s (C)  DOHMATOB Elvis Dopgima ]--\r\n"%sys.argv[0]
 
     # some useful settings (algorithmic complexity is O(nsamples*(dk)^m))
-    d = 16 # alphabel size
-    k = 6  # branching degree
-    m = 2  # mismatch tolerance
+    d = 16 # alphabel size (branching degree)
+    k = 6  # trie depth
+    m = 1  # mismatch tolerance
     nsamples = 500
 
     # load hand-written digits dataset
