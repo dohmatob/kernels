@@ -18,8 +18,8 @@ if __name__ == '__main__':
 
     # some useful settings (algorithmic complexity is O(nsamples*(dk)^m))
     d = 16 # alphabel size (branching degree)
-    k = 6  # trie depth
-    m = 1  # mismatch tolerance
+    k = 4  # trie depth
+    m = 0  # mismatch tolerance
     nsamples = 500
 
     # load hand-written digits dataset

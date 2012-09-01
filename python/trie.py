@@ -37,7 +37,6 @@ class Trie:
         else:
             meta = dict(self._meta)
             for index, lmers in meta.iteritems():
-                training_data[index] = training_data[index]
                 # check against length overflow
                 valid = nonzero(lmers[:,1] < len(training_data[index]))[0]
                 if len(valid) == 0:
@@ -117,7 +116,7 @@ class Trie:
 
                     # expand child
                     child_padding = padding
-                    if j + 1 == k:
+                    if j + 1 == d:
                         child_padding += ' '
                     else:
                         child_padding += '|'
@@ -231,9 +230,9 @@ class TestTrie(unittest.TestCase):
 
     def test_compute_kernel(self):
         trie = Trie()
-        k = 2
-        d = 6
-        m = 1
+        k = 7
+        d = 2
+        m = 2
 
         X = []
         X.append([0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1])
@@ -266,7 +265,7 @@ class TestTrie(unittest.TestCase):
 
         Y = [0,0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,2,0,0,1,1,2,0,0,2,2]
 
-        kernel = trie.compute_kernel(d, k, training_data=X, m=m)
+        kernel = trie.compute_kernel(k, d, training_data=X, m=m)
         print
         print kernel
         print 
