@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-
 import sys
-import re
 from sklearn import svm
-from numpy import array, fromstring, vstack, nonzero, loadtxt
+from numpy import  nonzero, loadtxt
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -48,11 +46,12 @@ if __name__ == '__main__':
     
     Y = [0,0,0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,2,0,0,1,1,2,0,0,2,2,1,1,0,2,2]
 
-    print len(X), len(Y)
     svc = svm.SVC(kernel='precomputed')
     svc.fit(kernel, Y)
 
-    print "Done (fitting accuracy: %.2f"%(len(nonzero(svc.predict(kernel) == Y)[0])*100.00/len(Y)) + "%)."
+    print kernel
+    print 
+    print "Fitting accuracy: %.2f"%(len(nonzero(svc.predict(kernel) == Y)[0])*100.00/len(Y)) + "%)."
 
 
     
