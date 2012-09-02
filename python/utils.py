@@ -1,5 +1,6 @@
+import re
 import sys
-from numpy import savetxt
+from numpy import savetxt, array, vstack, fromstring
 
 def ublas_matrix_to_numpy(filename):
     with open(filename, 'r') as ifh:
@@ -21,6 +22,6 @@ if __name__ == '__main__':
         print "Usage: python %s [OPTIONS] <path_to_ublas_kernel_file>"%sys.argv[0]
         sys.exit(-1)
 
-        kernel = ublas_matrix_to_numpy(sys.argv[1])
+    kernel = ublas_matrix_to_numpy(sys.argv[1])
 
-        savetxt("%s.numpyarray", kernel)
+    savetxt("%s.numpyarray"%sys.argv[1], kernel)
