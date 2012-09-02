@@ -1,6 +1,12 @@
 #ifndef TRIE_H
 #define TRIE_H
 
+/*!
+  \file Trie.h
+  \author DOHMATOB Elvis Dopgima
+  \brief Specification of trie-related structures.
+*/
+
 #include <vector>
 #include <map>
 #include <iostream>
@@ -9,112 +15,206 @@
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
 #include <boost/multi_array.hpp>
-#include <boost/assert.hpp>
 
 using namespace boost;
 namespace ublas = boost::numeric::ublas;
 
-/*
-  \file Trie.h
-  \author DOHMATOB Elvis Dopgima
-*/
-
 /*!
   \namespace Combinatorics
+  \brief Namespace for combinatorial stuff like Tries (Suffix Trees), etc.
 */
 namespace Combinatorics
 {
   /*!
-    \struct chunk_struc
+    \struct chunk_struct
+    \brief Encapsulation of continguous subsequences.
   */
   struct chunk_struct
   {
-    int starting;
+    /*!
+      offset where the chunk starts
+    */
+    int offset;
+
+    /*!
+      length of chunk
+    */
     int length;
+    
+    /*!
+      number of mismatches encountered yet by the chunk
+    */
     int mismatches;
   };
 
   /*!
     \typedef Chunk
+    \brief A shorter name for "struct chunk_struct"
   */
   typedef struct chunk_struct Chunk;
 
-  Chunk create_chunk(int starting, int ending, int mismatches);
+  /*!
+    Handy function for creating a Chunk.
+
+    \param offset offset where the chunk starts
+    \param length length of chunk
+    \param mismatches number of mismatches encountered yet by the chunk
+
+    \return created chunk
+  */
+  Chunk create_chunk(int offset, int length, int mismatches);
 
   /*!
-    \typedef chunks
+    \typedef Chunks
+    \brief Encapsulation of the list of surviving chunks at node.
   */
   typedef std::vector<Chunk > Chunks;
 
-  /*
-    \typedef _TrieMetadata
+  /*!
+    \typedef TrieMetadata
+    \brief Encapsulation of trie node's meta-data.
   */
-  typedef std::map<int, Chunks > _TrieMetadata;
+  typedef std::map<int, Chunks > TrieMetadata;
 
   /*!
-    \struct _trie_struct
+    \struct trie_struct
+    \brief Encapsulation of trie node.
   */
-  struct _trie_struct
+  struct trie_struct
   {
+    /*!
+      label of the edge connecting this node to its parent
+    */
     int label;
-    struct _trie_struct *parent;
+
+    /*!
+      parent of node
+    */
+    struct trie_struct *parent;
+
+    /*!
+      concatenation of all edge labels from root to this node
+    */
     std::stringstream rootpath;
-    std::vector<struct _trie_struct* > children;
+
+    /*!
+      children of this node
+    */
+    std::vector<struct trie_struct* > children;
+
+    /*!
+      number of nodes in trie rooted at this node
+    */
     int nodecount;
-    _TrieMetadata metadata;
+
+    /*!
+      meta-data of this node
+    */
+    TrieMetadata metadata;
   };
 
-  typedef struct _trie_struct _TrieNode;
+  /*!
+    \typedef TrieNode
+    \brief A shorter name for "struc trie_struct".
+  */
+  typedef struct trie_struct TrieNode;
 
   /*!
-    \typedef _Trie
+    \typedef Trie
+    \brief A trie is simply a pointer to its root node structure.
   */
-  typedef _TrieNode *_Trie;
+  typedef TrieNode *Trie;
 
-  _Trie create_trie();
+  /*!
+    Default function to create a trie  node (root).
 
-  _Trie create_trie(int label);
+    \return pointer to root node of created node
+  */
+  Trie create_trienode();
 
-  _Trie create_trie(int label, _Trie& parent);
+  /*!
+    Function to create a trie node with a given node label.
+    
+    \param label label of that will connect node to its parent
 
-  void add_child(_Trie& parent, _Trie& child);
+    \return pointer to root node of created node
+  */
+  Trie create_trienode(int label);
 
-  unsigned short is_root(const _Trie& trie);
+  /*!
+    Function to create a trie node with a given node label and parent.
 
-  void compute_metadata(_Trie& trie, int d, std::vector<std::vector<int > >& training_data);
-  void trim_bad_chunks(_Trie& trie, int index, Chunks& chunks, int m, std::vector<std::vector<int > >& training_data);
+    \param label label of that will connect node to its parent
+    \param parent pointer to parent node to to-be-created node
 
-  unsigned short inspect(_Trie& trie, int d, int m, std::vector<std::vector<int > >& training_data);
+    \return pointer to root node of created node    
+  */
+  Trie create_trienode(int label, Trie& parent);
 
-  void update_kernel(_Trie& trie, ublas::matrix<double >& kernel);
+  /*!
+    Function to add a child node to a parent node.
 
+  */
+  void add_child(Trie& parent, Trie& child);
+
+  /*!
+    Function to determine whether a given node is root.
+
+    \param trie pointer to node
+    \return true if node is root, false otherwise
+  */
+  bool is_root(const Trie& trie);
+
+  /*!
+    Function to compute meta-data of trie node.
+
+    \param trie pointer to node
+    \param d branching degree of node
+    \param training_data bail of training sequences
+  */
+  void compute_metadata(Trie& trie, int d, std::vector<std::vector<int > >& training_data);
+
+  /*!
+    Function to trim-off all chunks of a training sequence that have have hit the mismatch tolerance.
+
+    \param trie pointer to node under inspection
+    \param index of the training sequence as a member in the training pool
+    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
+    \param training_data bail of training sequences
+  */
+  void trim_bad_chunks(Trie& trie, int index, Chunks& chunks, int m, std::vector<std::vector<int > >& training_data);
+
+  /*!
+    Function to recompute the meta-data of a node, and determine whether it's worth exploring further down.
+
+    \param trie pointer to node under inspection
+    \param d branching degree of node
+    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
+    \param training_data bail of training sequences
+  */    
+  bool inspect(Trie& trie, int d, int m, std::vector<std::vector<int > >& training_data);
+
+  /*!
+    Function for updating the mismatch kernel, once a k-mer is reached.
+
+    \param pointer to k-mer node under inspection
+    \param a reference to the mismatch kernel
+  */
+  void update_kernel(Trie& trie, ublas::matrix<double >& kernel);
+
+  /*!
+    Function to normalize mismatch kernel so as to remove
+  */
   void normalize_kernel(ublas::matrix<double >& kernel);
 
-  void expand(_Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data, ublas::matrix<double >& kernel, std::string& padding);
-
+  void expand(Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data, ublas::matrix<double >& kernel, std::string& padding);
+  
   std::ostream& operator<<(std::ostream& cout, const Chunk& chunk);
-
+  
   std::ostream& operator<<(std::ostream& cout, const Chunks& chunks);
-
-  std::ostream& operator<<(std::ostream& cout, const _TrieMetadata& metadata);
-
-  /*!
-    \class Trie
-  */
-  class Trie
-  {
-  public:
-    /*!
-      Default constructor.
-    */
-    Trie();
-
-    _Trie get_trie() const;
-
-  private:
-    _Trie _trie;
-  };
-}
+  
+  std::ostream& operator<<(std::ostream& cout, const TrieMetadata& metadata);
+};
 
 #endif // TRIE_H
 
