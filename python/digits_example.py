@@ -20,7 +20,7 @@ if __name__ == '__main__':
     # d = 16 # alphabel size (branching degree)
     # k = 4  # trie depth
     # m = 1  # mismatch tolerance
-    nsamples = 200
+    nsamples = 250
 
     # load hand-written digits dataset
     digits = datasets.load_digits()

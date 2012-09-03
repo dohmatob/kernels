@@ -18,7 +18,9 @@
 
 using namespace boost::assign;
 
-Combinatorics::Chunk Combinatorics::create_chunk(int offset, int length, int mismatches)
+Combinatorics::Chunk Combinatorics::create_chunk(int offset, 
+						 int length, 
+						 int mismatches)
 {
   Combinatorics::Chunk *chunk = new Chunk;
   chunk->offset = offset;
@@ -28,7 +30,8 @@ Combinatorics::Chunk Combinatorics::create_chunk(int offset, int length, int mis
   return *chunk;
 }
   
-void Combinatorics::add_child(Combinatorics::Trie& parent, Trie& child)
+void Combinatorics::add_child(Combinatorics::Trie& parent, 
+			      Trie& child)
 {
   parent->children.push_back(child);
   parent->nodecount++;
@@ -47,7 +50,8 @@ Combinatorics::Trie Combinatorics::create_trienode()
   return create_trienode(-1);
 }
 
-Combinatorics::Trie Combinatorics::create_trienode(int label, Combinatorics::Trie& parent)
+Combinatorics::Trie Combinatorics::create_trienode(int label, 
+						   Combinatorics::Trie& parent)
 {
   Combinatorics::Trie trie = new Combinatorics::TrieNode;
   trie->label = label;
@@ -64,7 +68,9 @@ bool Combinatorics::is_root(const Combinatorics::Trie& trie)
   return trie->parent == 0;
 }
 
-void Combinatorics::compute_metadata(Combinatorics::Trie& trie, int d, Combinatorics::TrainingDataset& training_dataset)
+void Combinatorics::compute_metadata(Combinatorics::Trie& trie, 
+				     int d, 
+				     Combinatorics::TrainingDataset& training_dataset)
 {
   BOOST_ASSERT(training_dataset[0].size() - d + 1 > 0);
   for(unsigned index = 0; index < training_dataset.size(); index++)
@@ -79,14 +85,16 @@ void Combinatorics::compute_metadata(Combinatorics::Trie& trie, int d, Combinato
     }
 }
 
-std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics::Chunk& chunk)
+std::ostream& Combinatorics::operator<<(std::ostream& cout, 
+					const Combinatorics::Chunk& chunk)
 {
   cout << "(" << chunk.offset << "," << chunk.length << "," << chunk.mismatches << ")";
 
   return cout;
 }
 
-std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics::Chunks& chunks)
+std::ostream& Combinatorics::operator<<(std::ostream& cout, 
+					const Combinatorics::Chunks& chunks)
 {
   Combinatorics::Chunks::const_iterator chunks_it = chunks.begin();
   cout << "[" << chunks.size() << "](" << (chunks_it == chunks.end() ? ")" : "");
@@ -100,7 +108,8 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics:
   return cout;
 }
 
-std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics::TrieMetadata& metadata)
+std::ostream& Combinatorics::operator<<(std::ostream& cout, 
+					const Combinatorics::TrieMetadata& metadata)
 {
   Combinatorics::TrieMetadata::const_iterator metadata_it = metadata.begin();
   cout << "{" << (metadata_it == metadata.end() ? "}" : "");
@@ -114,8 +123,11 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics:
   return cout;
 }
   
-void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie, int index, Combinatorics::Chunks& chunks,
-				    int m, Combinatorics::TrainingDataset& training_dataset)
+void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie, 
+				    int index, 
+				    Combinatorics::Chunks& chunks,
+				    int m, 
+				    Combinatorics::TrainingDataset& training_dataset)
 {
   Combinatorics::Chunks::iterator chunks_it = chunks.begin();
   while(chunks_it != chunks.end())
@@ -136,7 +148,10 @@ void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie, int index, Combin
     }
 }
   
-bool Combinatorics::inspect(Combinatorics::Trie& trie, int d, int m, Combinatorics::TrainingDataset& training_dataset)
+bool Combinatorics::inspect(Combinatorics::Trie& trie, 
+			    int d, 
+			    int m, 
+			    Combinatorics::TrainingDataset& training_dataset)
 {
   if(is_root(trie))
     {
@@ -186,17 +201,21 @@ void Combinatorics::normalize_kernel(ublas::matrix<double >& kernel)
     }
 }
 
-void Combinatorics::update_kernel(Combinatorics::Trie& trie, int m, ublas::matrix<double >& kernel)
+void Combinatorics::update_kernel(Combinatorics::Trie& trie, 
+				  int m, 
+				  ublas::matrix<double >& kernel)
 {
   // compute source weights for surving k-mers
   ublas::vector<double > source_weights = ublas::scalar_vector<double >(kernel.size1(), 0);  
-  for(Combinatorics::TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); metadata_it != trie->metadata.end(); metadata_it++)
+  for(Combinatorics::TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); 
+      metadata_it != trie->metadata.end(); metadata_it++)
     {
       int index = metadata_it->first;
       Chunks chunks = metadata_it->second;
-      for(Combinatorics::Chunks::const_iterator chunks_it = chunks.begin(); chunks_it != chunks.end(); chunks_it++)
+      for(Combinatorics::Chunks::const_iterator chunks_it = chunks.begin(); 
+	  chunks_it != chunks.end(); chunks_it++)
 	{
-	  source_weights[index] +=  (1 - chunks_it->mismatches/m);
+	  source_weights[index] +=  m > 0 ? (1 - chunks_it->mismatches/m) : 1;
 	}
     }
   
@@ -204,7 +223,8 @@ void Combinatorics::update_kernel(Combinatorics::Trie& trie, int m, ublas::matri
   kernel += outer_prod(source_weights, source_weights);
 }
 
-std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics::Trie& trie)
+std::ostream& Combinatorics::operator<<(std::ostream& cout, 
+					const Combinatorics::Trie& trie)
 {
   if(!is_root(trie))
     {
@@ -214,7 +234,9 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics:
   return cout;
 }
 
-void Combinatorics::display_trienode(const Combinatorics::Trie& trie, int d, const std::string& padding)
+void Combinatorics::display_trienode(const Combinatorics::Trie& trie, 
+				     int d, 
+				     const std::string& padding)
 {
   if(is_root(trie))
     {
@@ -226,8 +248,13 @@ void Combinatorics::display_trienode(const Combinatorics::Trie& trie, int d, con
     }
 }
   
-void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, Combinatorics::TrainingDataset& training_dataset,
-			   ublas::matrix<double >& kernel, std::string& padding)
+void Combinatorics::expand(Combinatorics::Trie& trie, 
+			   int k, 
+			   int d, 
+			   int m, 
+			   Combinatorics::TrainingDataset& training_dataset,
+			   ublas::matrix<double >& kernel, 
+			   std::string& padding)
 {
   // recompute metadata of node
   bool go_ahead = inspect(trie, d, m, training_dataset);
@@ -259,7 +286,11 @@ void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, Combi
     }
 }
 
-void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, Combinatorics::TrainingDataset& training_dataset,
+void Combinatorics::expand(Combinatorics::Trie& trie, 
+			   int k, 
+			   int d, 
+			   int m, 
+			   Combinatorics::TrainingDataset& training_dataset,
 			   ublas::matrix<double >& kernel)
 {
   // intantiate padding
@@ -326,7 +357,8 @@ BOOST_AUTO_TEST_CASE(test_Chunks_constructors)
   Chunk chunk = create_chunk(2, 5, 0);
   chunks += chunk;
 
-  for(Chunks::const_iterator chunks_it = chunks.begin(); chunks_it != chunks.end(); chunks_it++)
+  for(Chunks::const_iterator chunks_it = chunks.begin(); chunks_it != chunks.end(); 
+      chunks_it++)
     {
       chunk = *chunks_it;
       BOOST_CHECK_EQUAL(chunk.offset, 2);
@@ -375,7 +407,8 @@ BOOST_AUTO_TEST_CASE(test_compute_metadata)
 		   training_dataset
 		   );
 
-  for(TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); metadata_it != trie->metadata.end(); metadata_it++)
+  for(TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); metadata_it != trie->metadata.end(); 
+      metadata_it++)
     {
       Chunks chunks = metadata_it->second;
       BOOST_CHECK_EQUAL(chunks.size(), 3);  
@@ -488,12 +521,12 @@ BOOST_AUTO_TEST_CASE(test_misc)
   // seq.clear();
 
   training_dataset = load_training_dataset("data/digits_data.dat");
-  int nsamples = 200;
+  int nsamples = 250;
   training_dataset = TrainingDataset(training_dataset.begin(), training_dataset.begin() + nsamples);
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size(), training_dataset.size());
 
   // expand
-  expand(trie, 4, 16, 1, training_dataset, kernel);
+  expand(trie, 6, 16, 2, training_dataset, kernel);
   
   // normalize kernel to remove the 'bias of length'
   Combinatorics::normalize_kernel(kernel);
