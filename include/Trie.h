@@ -100,12 +100,7 @@ namespace Combinatorics
     /*!
       children of this node
     */
-    std::vector<struct trie_struct* > children;
-
-    /*!
-      number of nodes in trie rooted at this node
-    */
-    int nodecount;
+    std::map<int, struct trie_struct* > children;
 
     /*!
       meta-data of this node
@@ -118,6 +113,12 @@ namespace Combinatorics
     \brief A shorter name for "struc trie_struct".
   */
   typedef struct trie_struct TrieNode;
+
+  /*!
+    \typedef TrieNodeChildren
+    \brief A shorter name for "std::map<int, struct trie_struct* >"
+  */
+  typedef std::map<int, struct trie_struct* > TrieNodeChildren;
 
   /*!
     \typedef Trie
@@ -156,6 +157,13 @@ namespace Combinatorics
     \return pointer to root node of created node    
   */
   Trie create_trienode(int label, Trie& parent);
+
+  /*!
+    Function to free a trie node and all its descendants.
+
+    \param trie pointer to the node.
+  */
+  void destroy_trie(Trie& trie);
 
   /*!
     Function to add a child node to a parent node.
@@ -227,8 +235,10 @@ namespace Combinatorics
     \param training_dataset bail of training sequences
     \param kernel a reference to the mismatch kernel
     \param padding a control string used in displaying the node
+
+    \return number of surviving k-mers
   */
-  void expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel, std::string& padding);
+  int expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel, std::string& padding);
 
   /*!
     An overloading of expand(..).
@@ -239,8 +249,10 @@ namespace Combinatorics
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
     \param training_dataset bail of training sequences
     \param kernel a reference to the mismatch kernel
+
+    \return number of surviving k-mers
   */
-  void expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel);
+  int expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel);
   
   /*!
     Overloading of operator<< for Chunk.
@@ -299,6 +311,25 @@ namespace Combinatorics
     \param padding a control string used in displaying the node
   */
   void display_trienode(const Trie& trie, int d, const std::string& padding);
+
+  /*!
+    Function to display trie.
+
+    \param trie pointer to root node of child
+    \param padding a control string used in displaying
+    
+    \return number of nodes in trie
+  */
+  int display_trie(const Trie& trie, std::string& padding);
+
+  /*!
+    An overloading of display_trie(..) function.
+    
+    \param trie pointer to root node of child
+
+    \return number of nodes in trie
+  */
+  int display_trie(const Trie& trie);
 };
 
 #endif // TRIE_H
