@@ -99,7 +99,8 @@ int Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& pa
       padding += " ";
   
       int count = 0;
-      for(Combinatorics::TrieNodeChildren::const_iterator children_it = trie->children.begin(); children_it != trie->children.end(); children_it++) 
+      for(Combinatorics::TrieNodeChildren::const_iterator children_it = trie->children.begin(); 
+	  children_it != trie->children.end(); children_it++) 
 	{
 	  count++;
 	  std::string child_padding(padding);
