@@ -17,6 +17,16 @@
 #include "Trie.h"
 
 using namespace boost::assign;
+
+Combinatorics::Chunk Combinatorics::create_chunk(int offset, int length, int mismatches)
+{
+  Combinatorics::Chunk *chunk = new Chunk;
+  chunk->offset = offset;
+  chunk->length = length;
+  chunk->mismatches = mismatches;
+
+  return *chunk;
+}
   
 void Combinatorics::add_child(Combinatorics::Trie& parent, Trie& child)
 {
@@ -134,7 +144,7 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie, int d, int m, std::vector
     }	  
   else
     {
-      // house_keeping:
+      // update metadata
       Combinatorics::TrieMetadata::iterator metadata_it = trie->metadata.begin();
       while(metadata_it != trie->metadata.end())
 	{
@@ -146,12 +156,16 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie, int d, int m, std::vector
 
 	  if(chunks.empty())
 	    {
+	      // no need keeping empty chunks
 	      trie->metadata.erase(index);
 	    }
 	  else
 	    {	
+	      // update metadata entry
 	      trie->metadata[index] = chunks;
 	    }
+	  
+	  // proceed 
 	  metadata_it++;
 	}
     }
@@ -184,22 +198,41 @@ void Combinatorics::update_kernel(Combinatorics::Trie& trie, ublas::matrix<doubl
   kernel += outer_prod(source_weights, source_weights);
 }
 
-void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data,
-			   ublas::matrix<double >& kernel, std::string& padding)
+std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics::Trie& trie)
 {
-  bool go_ahead = inspect(trie, d, m, training_data);
+  if(!is_root(trie))
+    {
+      cout << trie->rootpath.str() + "," << trie->metadata.size() << "/";
+    }
+  
+  return cout;
+}
 
+void Combinatorics::display_trienode(const Combinatorics::Trie& trie, int d, const std::string& padding)
+{
   if(is_root(trie))
     {
       std::cout << "//\r\n" << (d > 0 ? " \\" : "") << std::endl;
     }
   else
     {
-      std::cout << padding.substr(0, padding.length() - 1) + "+-" + trie->rootpath.str() + "," << trie->metadata.size() << "/" << std::endl;
+      std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
     }
+}
   
+void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data,
+			   ublas::matrix<double >& kernel, std::string& padding)
+{
+  // recompute metadata of node
+  bool go_ahead = inspect(trie, d, m, training_data);
+
+  // display node info
+  display_trienode(trie, d, padding);
+
+  // update padding
   padding += " ";
 
+  
   if(go_ahead)
     {
       if(k == 0)
@@ -219,17 +252,17 @@ void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::
 	}
     }
 }
-      
-Combinatorics::Chunk Combinatorics::create_chunk(int offset, int length, int mismatches)
+
+void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data,
+			   ublas::matrix<double >& kernel)
 {
-  Combinatorics::Chunk *chunk = new Chunk;
-  chunk->offset = offset;
-  chunk->length = length;
-  chunk->mismatches = mismatches;
+  // intantiate padding
+  std::string padding(" ");
 
-  return *chunk;
+  // delegate to other version
+  expand(trie, k, d, m, training_data, kernel, padding);
 }
-
+      
 using namespace Combinatorics;
       
 BOOST_AUTO_TEST_CASE(test_Chunkconstructors)
@@ -409,8 +442,7 @@ BOOST_AUTO_TEST_CASE(test_misc)
 
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_data.size(), training_data.size());
 
-  std::string padding(" ");
-  expand(trie, 20, 2, 2, training_data, kernel, padding);
+  expand(trie, 20, 2, 2, training_data, kernel);
   Combinatorics::normalize_kernel(kernel);
   std::cout << std::endl << kernel << std::endl;
   std::ofstream myfile;
