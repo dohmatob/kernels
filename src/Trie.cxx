@@ -33,8 +33,7 @@ Combinatorics::Chunk Combinatorics::create_chunk(int offset,
 void Combinatorics::add_child(Combinatorics::Trie& parent, 
 			      Trie& child)
 {
-  parent->children.push_back(child);
-  parent->nodecount++;
+  parent->children[child->label] = child;
 } 
 
 Combinatorics::Trie Combinatorics::create_trienode(int label)
@@ -42,7 +41,6 @@ Combinatorics::Trie Combinatorics::create_trienode(int label)
   Combinatorics::Trie trie = new Combinatorics::TrieNode;
   trie->label = label;
   trie->parent = 0;
-  trie->nodecount = 0;
 }
 
 Combinatorics::Trie Combinatorics::create_trienode()
@@ -56,7 +54,6 @@ Combinatorics::Trie Combinatorics::create_trienode(int label,
   Combinatorics::Trie trie = new Combinatorics::TrieNode;
   trie->label = label;
   trie->parent = parent;
-  trie->nodecount = 0;
   trie->metadata = parent->metadata;
   trie->rootpath << parent->rootpath.str();
   trie->rootpath << char(__toascii('a') + label);
@@ -68,6 +65,59 @@ bool Combinatorics::is_root(const Combinatorics::Trie& trie)
   return trie->parent == 0;
 }
 
+void Combinatorics::destroy_trie(Combinatorics::Trie& trie)
+{
+  if(trie)
+    {
+       // destroy all children nodes
+      for(int j = 0; j < trie->children.size(); j++)
+	{
+	  Combinatorics::destroy_trie(trie->children[j]);
+	}
+
+      // free the node itself
+      if(!is_root(trie))
+    	{
+    	  trie->parent->children.erase(trie->label);
+    	}
+      else
+    	{
+    	  delete trie;
+    	}
+    }
+}
+
+int Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& padding)
+{
+  int nodecount = 0;
+
+  if(trie)
+    {
+      Combinatorics::display_trienode(trie, trie->children.size(), padding);
+      
+      nodecount++;
+      padding += " ";
+  
+      int count = 0;
+      for(Combinatorics::TrieNodeChildren::const_iterator children_it = trie->children.begin(); children_it != trie->children.end(); children_it++) 
+	{
+	  count++;
+	  std::string child_padding(padding);
+	  child_padding += (count == trie->children.size()) ? " " : "|";
+	  nodecount += display_trie(children_it->second, child_padding);
+	}
+    }
+
+  return nodecount;
+}
+
+int Combinatorics::display_trie(const Combinatorics::Trie& trie)
+{
+  std::string padding(" ");
+  
+  return Combinatorics::display_trie(trie, padding);
+}
+  
 void Combinatorics::compute_metadata(Combinatorics::Trie& trie, 
 				     int d, 
 				     Combinatorics::TrainingDataset& training_dataset)
@@ -238,17 +288,20 @@ void Combinatorics::display_trienode(const Combinatorics::Trie& trie,
 				     int d, 
 				     const std::string& padding)
 {
-  if(is_root(trie))
+  if(trie)
     {
-      std::cout << "//\r\n" << (d > 0 ? " \\" : "") << std::endl;
-    }
-  else
-    {
-      std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
+      if(is_root(trie))
+	{
+	  std::cout << "//\r\n" << (d > 0 ? " \\" : "") << std::endl;
+	}
+      else
+	{
+	  std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
+	}
     }
 }
   
-void Combinatorics::expand(Combinatorics::Trie& trie, 
+int Combinatorics::expand(Combinatorics::Trie& trie, 
 			   int k, 
 			   int d, 
 			   int m, 
@@ -256,20 +309,27 @@ void Combinatorics::expand(Combinatorics::Trie& trie,
 			   ublas::matrix<double >& kernel, 
 			   std::string& padding)
 {
+  int nkmers = 0;
+
   // recompute metadata of node
   bool go_ahead = inspect(trie, d, m, training_dataset);
 
-  // display node info
-  display_trienode(trie, d, padding);
-
-  // update padding
-  padding += " ";
 
   
   if(go_ahead)
     {
+      // display node info
+      display_trienode(trie, d, padding);
+
+      // update padding
+      padding += " ";
+
+
       if(k == 0)
 	{
+	  // increment number of kmers
+	  nkmers++;
+
 	  // updata kernel
 	  Combinatorics::update_kernel(trie, m, kernel);
 	}
@@ -280,13 +340,20 @@ void Combinatorics::expand(Combinatorics::Trie& trie,
 	      std::string child_padding(padding);
 	      child_padding += (j + 1 == d) ? " " : "|";
 	      Trie tmp = create_trienode(j, trie);
-	      expand(trie->children[j], k - 1, d, m, training_dataset, kernel, child_padding);
+	      nkmers += expand(trie->children[j], k - 1, d, m, training_dataset, kernel, child_padding);
 	    }
 	}
     }
+  else
+    {
+      // liberate memory occupied by node and all its descendants
+      Combinatorics::destroy_trie(trie);
+    }
+
+  return nkmers;
 }
 
-void Combinatorics::expand(Combinatorics::Trie& trie, 
+int Combinatorics::expand(Combinatorics::Trie& trie, 
 			   int k, 
 			   int d, 
 			   int m, 
@@ -297,7 +364,7 @@ void Combinatorics::expand(Combinatorics::Trie& trie,
   std::string padding(" ");
 
   // delegate to other version
-  expand(trie, k, d, m, training_dataset, kernel, padding);
+  return expand(trie, k, d, m, training_dataset, kernel, padding);
 }
    
 Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::string& filename)
@@ -521,24 +588,25 @@ BOOST_AUTO_TEST_CASE(test_misc)
   // seq.clear();
 
   training_dataset = load_training_dataset("data/digits_data.dat");
-  int nsamples = 250;
+  int nsamples = 500;
   training_dataset = TrainingDataset(training_dataset.begin(), training_dataset.begin() + nsamples);
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size(), training_dataset.size());
 
   // expand
-  expand(trie, 6, 16, 2, training_dataset, kernel);
+  int nkmers = expand(trie, 6, 16, 1, training_dataset, kernel);
+  std::cout << nkmers << std::endl;
   
-  // normalize kernel to remove the 'bias of length'
-  Combinatorics::normalize_kernel(kernel);
+  // // normalize kernel to remove the 'bias of length'
+  // Combinatorics::normalize_kernel(kernel);
     
-  // display kernel
-  std::cout << std::endl << kernel << std::endl;
+  // // display kernel
+  // std::cout << std::endl << kernel << std::endl;
 
-  // dump kernel disk
-  std::ofstream kernelfile;
-  kernelfile.open ("data/kernel.dat");
-  kernelfile << kernel;
-  kernelfile.close();
+  // // dump kernel disk
+  // std::ofstream kernelfile;
+  // kernelfile.open ("data/kernel.dat");
+  // kernelfile << kernel;
+  // kernelfile.close();
 }  
 
 
