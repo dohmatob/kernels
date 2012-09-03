@@ -126,6 +126,12 @@ namespace Combinatorics
   typedef TrieNode *Trie;
 
   /*!
+    \typedef TrainingDataset
+    \brief A container for holding sequences of training data sequences.
+  */
+  typedef std::vector<std::vector<int> > TrainingDataset;
+
+  /*!
     Default function to create a trie  node (root).
 
     \return pointer to root node of created node
@@ -170,9 +176,9 @@ namespace Combinatorics
 
     \param trie pointer to node
     \param d branching degree of node
-    \param training_data bail of training sequences
+    \param training_dataset bail of training sequences
   */
-  void compute_metadata(Trie& trie, int d, std::vector<std::vector<int > >& training_data);
+  void compute_metadata(Trie& trie, int d, TrainingDataset& training_dataset);
 
   /*!
     Function to trim-off all chunks of a training sequence that have have hit the mismatch tolerance.
@@ -181,9 +187,9 @@ namespace Combinatorics
     \param chunks reference to Chunks object under inspection
     \param index of the training sequence as a member in the training pool
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
-    \param training_data bail of training sequences
+    \param training_dataset bail of training sequences
   */
-  void trim_bad_chunks(Trie& trie, int index, Chunks& chunks, int m, std::vector<std::vector<int > >& training_data);
+  void trim_bad_chunks(Trie& trie, int index, Chunks& chunks, int m, TrainingDataset& training_dataset);
 
   /*!
     Function to recompute the meta-data of a node, and determine whether it's worth exploring further down.
@@ -191,17 +197,18 @@ namespace Combinatorics
     \param trie pointer to node under inspection
     \param d branching degree of node
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
-    \param training_data bail of training sequences
+    \param training_dataset bail of training sequences
   */    
-  bool inspect(Trie& trie, int d, int m, std::vector<std::vector<int > >& training_data);
+  bool inspect(Trie& trie, int d, int m, TrainingDataset& training_dataset);
 
   /*!
     Function for updating the mismatch kernel, once a k-mer is reached.
 
     \param trie pointer to k-mer node under inspection
+    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
     \param kernel a reference to the mismatch kernel
   */
-  void update_kernel(Trie& trie, ublas::matrix<double >& kernel);
+  void update_kernel(Trie& trie, int m, ublas::matrix<double >& kernel);
 
   /*!
     Function to normalize mismatch kernel so as to remove
@@ -217,11 +224,11 @@ namespace Combinatorics
     \param k depth of expansion
     \param d branching factor
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
-    \param training_data bail of training sequences
+    \param training_dataset bail of training sequences
     \param kernel a reference to the mismatch kernel
     \param padding a control string used in displaying the node
   */
-  void expand(Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data, ublas::matrix<double >& kernel, std::string& padding);
+  void expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel, std::string& padding);
 
   /*!
     An overloading of expand(..).
@@ -230,10 +237,10 @@ namespace Combinatorics
     \param k depth of expansion
     \param d branching factor
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
-    \param training_data bail of training sequences
+    \param training_dataset bail of training sequences
     \param kernel a reference to the mismatch kernel
   */
-  void expand(Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data, ublas::matrix<double >& kernel);
+  void expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel);
   
   /*!
     Overloading of operator<< for Chunk.
@@ -274,6 +281,15 @@ namespace Combinatorics
     \return resulting ostream
   */
   std::ostream& operator<<(std::ostream& cout, const Trie& trie);
+
+  /*!
+    Function to load training dataset from disk.
+
+    \param filename filename containing dataset
+
+    \return loaded dataset
+  */
+  TrainingDataset load_training_dataset(const std::string& filename);
 
   /*!
     Function for fancy-displaying trie node.

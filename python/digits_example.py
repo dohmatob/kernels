@@ -10,32 +10,34 @@ import sys
 from trie import *
 from sklearn import datasets
 from numpy.random import shuffle
-from numpy import savetxt, nonzero
+from numpy import savetxt, nonzero, loadtxt
 from sklearn import svm
 
 if __name__ == '__main__':
     print "\r\n\t\t --[ %s (C)  DOHMATOB Elvis Dopgima ]--\r\n"%sys.argv[0]
 
-    # some useful settings (algorithmic complexity is O(nsamples*(dk)^m))
-    d = 16 # alphabel size (branching degree)
-    k = 4  # trie depth
-    m = 1  # mismatch tolerance
-    nsamples = 50000
+    # # some useful settings (algorithmic complexity is O(nsamples*(dk)^m))
+    # d = 16 # alphabel size (branching degree)
+    # k = 4  # trie depth
+    # m = 1  # mismatch tolerance
+    nsamples = 200
 
     # load hand-written digits dataset
     digits = datasets.load_digits()
     
-    # prepare training samples
-    X = digits.data[:nsamples]
-    Y = digits.target[:nsamples]
+    # # prepare training samples
+    # X = digits.data[:nsamples]
+    # Y = digits.target[:nsamples]
     
-    # instantial Trie object
-    trie = Trie()
+    # # instantial Trie object
+    # trie = Trie()
 
-    # use Trie object to compute mismatch string kernel for classifier
-    print
-    print "Computing mismatch string kernel (this may take a while) .." 
-    kernel =  trie.compute_kernel(k, d, training_data=X, m=m)
+    # # use Trie object to compute mismatch string kernel for classifier
+    # print
+    # print "Computing mismatch string kernel (this may take a while) .." 
+
+    Y = digits.target[:nsamples]
+    kernel =  loadtxt('data/kernel.dat.numpyarray') # trie.compute_kernel(k, d, training_data=X, m=m)
     print
     print "Done."
     print "Kernel:\r\n", kernel

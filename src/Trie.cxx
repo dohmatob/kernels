@@ -64,13 +64,14 @@ bool Combinatorics::is_root(const Combinatorics::Trie& trie)
   return trie->parent == 0;
 }
 
-void Combinatorics::compute_metadata(Combinatorics::Trie& trie, int d, std::vector<std::vector<int > >& training_data)
+void Combinatorics::compute_metadata(Combinatorics::Trie& trie, int d, Combinatorics::TrainingDataset& training_dataset)
 {
-  for(unsigned index = 0; index < training_data.size(); index++)
+  BOOST_ASSERT(training_dataset[0].size() - d + 1 > 0);
+  for(unsigned index = 0; index < training_dataset.size(); index++)
     {
       Chunks chunks;
-      BOOST_ASSERT(training_data[index].size() - d + 1 > 0);
-      for(int offset = 0; offset < training_data[index].size() - d + 1; offset++)
+      BOOST_ASSERT(training_dataset[index].size() == training_dataset[0].size());
+      for(int offset = 0; offset < training_dataset[index].size() - d + 1; offset++)
 	{
 	  chunks.push_back(create_chunk(offset, 0, 0));
 	}
@@ -114,13 +115,13 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout, const Combinatorics:
 }
   
 void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie, int index, Combinatorics::Chunks& chunks,
-				    int m, std::vector<std::vector<int > >& training_data)
+				    int m, Combinatorics::TrainingDataset& training_dataset)
 {
   Combinatorics::Chunks::iterator chunks_it = chunks.begin();
   while(chunks_it != chunks.end())
     {
       Combinatorics::Chunk chunk = *chunks_it;
-      chunk.mismatches += (training_data[index][chunk.offset + chunk.length] != trie->label) ? 1 : 0;
+      chunk.mismatches += (training_dataset[index][chunk.offset + chunk.length] != trie->label) ? 1 : 0;
       chunk.length++;
       
       // delete this chunk if we have hit more than m mismatches with it
@@ -135,12 +136,12 @@ void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie, int index, Combin
     }
 }
   
-bool Combinatorics::inspect(Combinatorics::Trie& trie, int d, int m, std::vector<std::vector<int > >& training_data)
+bool Combinatorics::inspect(Combinatorics::Trie& trie, int d, int m, Combinatorics::TrainingDataset& training_dataset)
 {
   if(is_root(trie))
     {
       // create meta data for root node (this will be copied to children nodes as they're created
-      Combinatorics::compute_metadata(trie, d, training_data);
+      Combinatorics::compute_metadata(trie, d, training_dataset);
     }	  
   else
     {
@@ -152,7 +153,7 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie, int d, int m, std::vector
 	  Chunks chunks = metadata_it->second;
 
 	  // trim-off all chunks that have hit the mismatch threshold (m)
-	  Combinatorics::trim_bad_chunks(trie, index, chunks, m, training_data);
+	  Combinatorics::trim_bad_chunks(trie, index, chunks, m, training_dataset);
 
 	  if(chunks.empty())
 	    {
@@ -185,13 +186,18 @@ void Combinatorics::normalize_kernel(ublas::matrix<double >& kernel)
     }
 }
 
-void Combinatorics::update_kernel(Combinatorics::Trie& trie, ublas::matrix<double >& kernel)
+void Combinatorics::update_kernel(Combinatorics::Trie& trie, int m, ublas::matrix<double >& kernel)
 {
   // compute source weights for surving k-mers
-  ublas::vector<int > source_weights = ublas::scalar_vector<int >(kernel.size1(), 0);  
-  for(Combinatorics::TrieMetadata::iterator metadata_it = trie->metadata.begin(); metadata_it != trie->metadata.end(); metadata_it++)
+  ublas::vector<double > source_weights = ublas::scalar_vector<double >(kernel.size1(), 0);  
+  for(Combinatorics::TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); metadata_it != trie->metadata.end(); metadata_it++)
     {
-      source_weights[metadata_it->first] =  metadata_it->second.size();
+      int index = metadata_it->first;
+      Chunks chunks = metadata_it->second;
+      for(Combinatorics::Chunks::const_iterator chunks_it = chunks.begin(); chunks_it != chunks.end(); chunks_it++)
+	{
+	  source_weights[index] +=  (1 - chunks_it->mismatches/m);
+	}
     }
   
   // update all kernel entries corresponding to surviving k-kmers
@@ -220,11 +226,11 @@ void Combinatorics::display_trienode(const Combinatorics::Trie& trie, int d, con
     }
 }
   
-void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data,
+void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, Combinatorics::TrainingDataset& training_dataset,
 			   ublas::matrix<double >& kernel, std::string& padding)
 {
   // recompute metadata of node
-  bool go_ahead = inspect(trie, d, m, training_data);
+  bool go_ahead = inspect(trie, d, m, training_dataset);
 
   // display node info
   display_trienode(trie, d, padding);
@@ -238,7 +244,7 @@ void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::
       if(k == 0)
 	{
 	  // updata kernel
-	  Combinatorics::update_kernel(trie, kernel);
+	  Combinatorics::update_kernel(trie, m, kernel);
 	}
       else
 	{
@@ -247,22 +253,63 @@ void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::
 	      std::string child_padding(padding);
 	      child_padding += (j + 1 == d) ? " " : "|";
 	      Trie tmp = create_trienode(j, trie);
-	      expand(trie->children[j], k - 1, d, m, training_data, kernel, child_padding);
+	      expand(trie->children[j], k - 1, d, m, training_dataset, kernel, child_padding);
 	    }
 	}
     }
 }
 
-void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data,
+void Combinatorics::expand(Combinatorics::Trie& trie, int k, int d, int m, Combinatorics::TrainingDataset& training_dataset,
 			   ublas::matrix<double >& kernel)
 {
   // intantiate padding
   std::string padding(" ");
 
   // delegate to other version
-  expand(trie, k, d, m, training_data, kernel, padding);
+  expand(trie, k, d, m, training_dataset, kernel, padding);
 }
+   
+Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::string& filename)
+{
+  // XXX check that filename exists
+
+  std::vector<std::vector<int> > training_dataset;
+  std::ifstream input(filename.c_str());
+  std::string lineData;
+  int n = 0;
+  int m;
+
+  while(std::getline(input, lineData))
+    {
+      int d;
+      std::vector<int > row;
+      std::stringstream lineStream(lineData);
+
+      while (lineStream >> d)
+	{
+	  row.push_back(d);
+	}
+	  
+      if (n == 0)
+	{
+          m = row.size();
+	}
       
+      if (row.size() > 0)
+        {
+          if (row.size() != m)
+            {
+              throw "mal-formed matrix line";
+            }
+	  
+          training_dataset.push_back(row);
+          n++;
+        }
+    }
+  
+  return training_dataset;
+}
+
 using namespace Combinatorics;
       
 BOOST_AUTO_TEST_CASE(test_Chunkconstructors)
@@ -311,21 +358,21 @@ BOOST_AUTO_TEST_CASE(test_compute_metadata)
 
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(3,3);
 
-  std::vector<std::vector<int > > training_data;
+  Combinatorics::TrainingDataset training_dataset;
   std::vector<int > seq;
   seq += 0,0,1,0;
-  training_data += seq;
+  training_dataset += seq;
   seq.clear();
   seq += 1,0,1,0; 
-  training_data += seq;
+  training_dataset += seq;
   seq.clear();
   seq += 1,1,1,0; 
-  training_data += seq;
+  training_dataset += seq;
   seq.clear();
 
   compute_metadata(trie,
 		   2, // branching degree (number of children per internal node
-		   training_data
+		   training_dataset
 		   );
 
   for(TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); metadata_it != trie->metadata.end(); metadata_it++)
@@ -341,109 +388,112 @@ BOOST_AUTO_TEST_CASE(test_misc)
 {
   Trie trie = create_trienode();
 
-  std::vector<std::vector<int > > training_data;
-  std::vector<int > seq;
-  seq += 0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();  
-  seq += 0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,1,0,0,0,0,1,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,1,0,0,0,0,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,0,1,1;
-  training_data += seq;
-  seq.clear();
-  seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1;
-  training_data += seq;
-  seq.clear();
+  TrainingDataset training_dataset;
+  // std::vector<int > seq;
+  // seq += 0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();  
+  // seq += 0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,1,0,0,0,0,1,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,1,0,0,0,0,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,0,1,1;
+  // training_dataset += seq;
+  // seq.clear();
+  // seq += 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1;
+  // training_dataset += seq;
+  // seq.clear();
 
-  ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_data.size(), training_data.size());
+  training_dataset = load_training_dataset("data/digits_data.dat");
+  int nsamples = 200;
+  training_dataset = TrainingDataset(training_dataset.begin(), training_dataset.begin() + nsamples);
+  ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size(), training_dataset.size());
 
   // expand
-  expand(trie, 40, 2, 2, training_data, kernel);
+  expand(trie, 4, 16, 1, training_dataset, kernel);
   
   // normalize kernel to remove the 'bias of length'
   Combinatorics::normalize_kernel(kernel);
@@ -456,8 +506,8 @@ BOOST_AUTO_TEST_CASE(test_misc)
   kernelfile.open ("data/kernel.dat");
   kernelfile << kernel;
   kernelfile.close();
-}
-  
+}  
+
 
 
 
