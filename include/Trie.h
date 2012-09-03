@@ -178,6 +178,7 @@ namespace Combinatorics
     Function to trim-off all chunks of a training sequence that have have hit the mismatch tolerance.
 
     \param trie pointer to node under inspection
+    \param chunks reference to Chunks object under inspection
     \param index of the training sequence as a member in the training pool
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
     \param training_data bail of training sequences
@@ -197,24 +198,93 @@ namespace Combinatorics
   /*!
     Function for updating the mismatch kernel, once a k-mer is reached.
 
-    \param pointer to k-mer node under inspection
-    \param a reference to the mismatch kernel
+    \param trie pointer to k-mer node under inspection
+    \param kernel a reference to the mismatch kernel
   */
   void update_kernel(Trie& trie, ublas::matrix<double >& kernel);
 
   /*!
     Function to normalize mismatch kernel so as to remove
+
+    \param kernel a reference to the mismatch kernel to be normalized    
   */
   void normalize_kernel(ublas::matrix<double >& kernel);
 
+  /*!
+    Function to expand a node a given number of levels down and with a given braching factor, constrained by a training dataset and a mismatch tolerance.
+
+    \param trie pointer to node to be expanded
+    \param k depth of expansion
+    \param d branching factor
+    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
+    \param training_data bail of training sequences
+    \param kernel a reference to the mismatch kernel
+    \param padding a control string used in displaying the node
+  */
   void expand(Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data, ublas::matrix<double >& kernel, std::string& padding);
+
+  /*!
+    An overloading of expand(..).
+
+    \param trie pointer to node to be expanded
+    \param k depth of expansion
+    \param d branching factor
+    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
+    \param training_data bail of training sequences
+    \param kernel a reference to the mismatch kernel
+  */
+  void expand(Trie& trie, int k, int d, int m, std::vector<std::vector<int > >& training_data, ublas::matrix<double >& kernel);
   
+  /*!
+    Overloading of operator<< for Chunk.
+
+    \param cout output stream receiving results
+    \param chunk reference to Chunk structure to be printed
+
+    \return resulting ostream
+  */
   std::ostream& operator<<(std::ostream& cout, const Chunk& chunk);
-  
+
+  /*!
+    Overloading of operator<< for Chunks.
+
+    \param cout output stream receiving results
+    \param chunks reference to Chunks object to be printed
+
+    \return resulting ostream
+  */  
   std::ostream& operator<<(std::ostream& cout, const Chunks& chunks);
   
+  /*!
+    Overloading of operator<< for TrieMetadata.
+    
+    \param cout output stream receiving results
+    \param metadata reference to TrieMedata object to be printed
+
+    \return resulting ostream
+  */
   std::ostream& operator<<(std::ostream& cout, const TrieMetadata& metadata);
+
+  /*!
+    Overloading of operator<< for Trie.
+    
+    \param cout output stream receiving results
+    \param trie pointer to the trie node to be printed
+
+    \return resulting ostream
+  */
+  std::ostream& operator<<(std::ostream& cout, const Trie& trie);
+
+  /*!
+    Function for fancy-displaying trie node.
+
+    \param trie pointer to node to be displayed
+    \param d branching degree of trie node
+    \param padding a control string used in displaying the node
+  */
+  void display_trienode(const Trie& trie, int d, const std::string& padding);
 };
 
 #endif // TRIE_H
+
 
