@@ -442,13 +442,20 @@ BOOST_AUTO_TEST_CASE(test_misc)
 
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_data.size(), training_data.size());
 
-  expand(trie, 20, 2, 2, training_data, kernel);
+  // expand
+  expand(trie, 40, 2, 2, training_data, kernel);
+  
+  // normalize kernel to remove the 'bias of length'
   Combinatorics::normalize_kernel(kernel);
+    
+  // display kernel
   std::cout << std::endl << kernel << std::endl;
-  std::ofstream myfile;
-  myfile.open ("example.txt");
-  myfile << kernel;
-  myfile.close();
+
+  // dump kernel disk
+  std::ofstream kernelfile;
+  kernelfile.open ("data/kernel.dat");
+  kernelfile << kernel;
+  kernelfile.close();
 }
   
 

@@ -46,9 +46,20 @@ if __name__ == '__main__':
     
     Y = [0,0,0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,2,0,0,1,1,2,0,0,2,2,1,1,0,2,2]
 
+    print 
+    print "Training sequences:"
+    for seq in X:
+        print ",".join([str(a) for a in seq])
+
+    print
+    print "Target class labels:"
+    print ",".join([str(y) for y in Y])
+
     svc = svm.SVC(kernel='precomputed')
     svc.fit(kernel, Y)
 
+    print 
+    print "Mismatch (Leslie) kernel:"
     print kernel
     print 
     print "Fitting accuracy: %.2f"%(len(nonzero(svc.predict(kernel) == Y)[0])*100.00/len(Y)) + "%)."
