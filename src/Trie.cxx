@@ -590,24 +590,27 @@ BOOST_AUTO_TEST_CASE(test_misc)
 
   training_dataset = load_training_dataset("data/digits_data.dat");
   int nsamples = 500;
+  int k = 6;
+  int d = 16;
+  int m = 2;
   training_dataset = TrainingDataset(training_dataset.begin(), training_dataset.begin() + nsamples);
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size(), training_dataset.size());
 
   // expand
-  int nkmers = expand(trie, 6, 16, 1, training_dataset, kernel);
-  std::cout << nkmers << std::endl;
+  int nkmers = expand(trie, k, d, m, training_dataset, kernel);
+  std::cout << nkmers << " " << k << "-mers out of " << std::pow(d, k) << " survived." << std::endl;
   
-  // // normalize kernel to remove the 'bias of length'
-  // Combinatorics::normalize_kernel(kernel);
+  // normalize kernel to remove the 'bias of length'
+  Combinatorics::normalize_kernel(kernel);
     
-  // // display kernel
-  // std::cout << std::endl << kernel << std::endl;
+  // display kernel
+  std::cout << std::endl << kernel << std::endl;
 
-  // // dump kernel disk
-  // std::ofstream kernelfile;
-  // kernelfile.open ("data/kernel.dat");
-  // kernelfile << kernel;
-  // kernelfile.close();
+  // dump kernel disk
+  std::ofstream kernelfile;
+  kernelfile.open ("data/kernel.dat");
+  kernelfile << kernel;
+  kernelfile.close();
 }  
 
 
