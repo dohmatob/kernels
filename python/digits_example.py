@@ -20,10 +20,10 @@ if __name__ == '__main__':
     # d = 16 # alphabel size (branching degree)
     # k = 4  # trie depth
     # m = 1  # mismatch tolerance
-    nsamples = 500
+    nsamples = 250
 
     # load hand-written digits dataset
-    digits = datasets.load_digits()
+    # digits =  datasets.load_digits()
     
     # # prepare training samples
     # X = digits.data[:nsamples]
@@ -36,7 +36,8 @@ if __name__ == '__main__':
     # print
     # print "Computing mismatch string kernel (this may take a while) .." 
 
-    Y = digits.target[:nsamples]
+    # Y = digits.target[:nsamples]
+    Y = loadtxt('data/digits_target.dat')[:nsamples]
     kernel =  loadtxt('data/kernel.dat.numpyarray') # trie.compute_kernel(k, d, training_data=X, m=m)
     print
     print "Done."

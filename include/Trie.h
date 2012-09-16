@@ -197,7 +197,7 @@ namespace Combinatorics
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
     \param training_dataset bail of training sequences
   */
-  void trim_bad_chunks(Trie& trie, int index, Chunks& chunks, int m, TrainingDataset& training_dataset);
+  void trim_bad_chunks(Trie& trie, int index, int m, TrainingDataset& training_dataset);
 
   /*!
     Function to recompute the meta-data of a node, and determine whether it's worth exploring further down.
