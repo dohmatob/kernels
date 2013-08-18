@@ -1,29 +1,34 @@
-# -*- coding: utf-8 -*-
-
 """
 :Module: trie
-:Synopsis: A quick-and-dirty implementation of the calculus of "mistmatch string kernels"
+:Synopsis: A quick-and-dirty implementation of the calculus of
+"mistmatch string kernels"
 :Author: DOHMATOB Elvis Dopgima
+
 """
 
 import unittest
-from numpy import array, zeros, nonzero, all, meshgrid, outer, sqrt, ndindex
+import numpy as np
+from numpy import (array, zeros, nonzero, meshgrid,
+                   outer, sqrt, ndindex)
 from sklearn import svm
 
-_alphabet = [chr(x) for x in xrange(ord('a'), ord('z'))]
+ALPHABET = ["\\x%02x" % x
+             for x in xrange(256)]
+
 
 class Trie:
-    def __init__(self, label=-1, parent=0):
+    def __init__(self, label=-1, parent=0, alphabet=ALPHABET):
         self._label = label
         self._meta = {}
         self._rootpath = ""
         self._children = dict()
         self.set_parent(parent)
         self._nodecount = 0
+        self._alphabet = alphabet
 
         if not self.is_root():
-            self._rootpath += _alphabet[label]
-    
+            self._rootpath += self._alphabet[label]
+
     def is_root(self):
         return (self._parent == 0)
 
@@ -112,7 +117,7 @@ class Trie:
                 # recursively expand all children 
                 for j in xrange(d):
                     # span a new child
-                    _ = Trie(j, self) 
+                    _ = Trie(j, self, alphabet=self._alphabet) 
 
                     # expand child
                     child_padding = padding
@@ -181,10 +186,14 @@ class Trie:
         # normalize kernel to remove 'length bias'
         N = len(training_data)
         for x, y in ndindex((N,N)):
+            if x == y:
+                continue
             q = kernel[x,x]*kernel[y,y]
             if q:
                 kernel[x,y] /= sqrt(q)
 
+        import numpy as np
+        np.fill_diagonal(kernel, 1.)
         print "%d out of %d (%d,%d)-mers survived"%(rc, d**k, k, m)
 
         return kernel
@@ -223,6 +232,18 @@ class Trie:
         return self._parent
 
 
+import binascii
+def byte2bin(byte):
+    y = bin(int(binascii.hexlify(byte), 16))[2:]
+    return "0" * (8 - len(y)) + y
+
+    return y
+
+
+def bytes2bin(buf):
+    return "".join([byte2bin(byte) for byte in buf])
+
+
 class TestTrie(unittest.TestCase):
     def test_constructors(self):
         trie = Trie()
@@ -230,62 +251,103 @@ class TestTrie(unittest.TestCase):
 
     def test_compute_kernel(self):
         trie = Trie()
-        k = 20
-        d = 2
-        m = 2
-        
-        X = []
-        X.append([0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1])
-        X.append([0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1])
-        X.append([1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0])
-        X.append([1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1])
-        X.append([1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1])
-        X.append([1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1])
-        X.append([1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,1])
-        X.append([0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
-        X.append([0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
-        X.append([0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
-        X.append([0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0])
-        X.append([0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0])
-        X.append([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1])
-        X.append([0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0])
-        X.append([1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1])
-        X.append([0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1])
-        X.append([0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1])
-        X.append([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0])
-        X.append([1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1])
-        X.append([1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1])
-        X.append([0,0,0,0,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,0])
-        X.append([0,0,1,0,0,0,0,1,0,0,0,1,1,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1])
-        X.append([0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0])
-        X.append([1,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1])
-        X.append([1,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,1,1])
-        X.append([0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1])
-        X.append([0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0])
-        X.append([0,0,1,0,0,0,0,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1])
-        X.append([0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,0,1,1,0])
-        X.append([0,1,1,1,1,1,1,0,1,1,1,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0])
-        X.append([0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,0,1,1])
-        X.append([0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1])
+        k = 4
+        d = 256
+        m = 1
 
-        Y = [0,0,0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,2,0,0,1,1,2,0,0,2,2,1,1,0,2,2]
+        X = np.zeros((1000, 12))
+        X[:len(X) / 3, :6] = 1
+        X[len(X) / 3:2 * len(X) / 3:, 3:9] = 1
+        X[2 * len(X) / 3:, 6:] = 1
 
-        kernel = trie.compute_kernel(k, d, training_data=X, m=m)
-        print
+        Y = np.zeros(len(X))
+        Y[:len(Y) / 3] = 0
+        Y[len(Y) / 3:2 * len(Y) / 3:] = 1
+        Y[2 * len(Y) / 3:] = 2
+
+        X = ['GET /elvis.jpg HTTP/1.1\r\n\r\n',
+             'POST /gael.jpg HTTP/1.1\r\n\r\n',
+             'HEAD /michael.jpg HTTP/1.1\r\n\r\n',
+             'SIP/2.0 480 Offline\r\n\r\n',
+             'SIP/2.0 200 OK\r\n\r\n',
+             'SIP/2.0 401 Not Authorized\r\n\r\n',
+             'ekiga.net.sip > is148601.local.sip-tls: '
+             '[udp sum ok] SIP, length: 404\r\n'
+             'SIP/2.0 404 Not Here\r\n'
+             'Via: SIP/2.0/UDP 127.0.0.1:5061;branch'
+             '=z9hG4bK-4277144682;rport=5061;received'
+             '=78.251.251.209\r\n'
+             'From: "758198212831088"<sip:758198212831088'
+             '@86.64.162.35>;tag=858043271111089947445360\r\n'
+             'To: "758198212831088"<sip:758198212831088@86.64'
+             '.162.35>;tag=c64e1f832a41ec1c1f4e5673ac5b80f6'
+             '.c635\r\n'
+             'CSeq: 1 OPTIONS\r\n'
+             'Call-ID: 4085092783\r\n'
+             'Server: Kamailio (1.5.3-notls (i386/linux))\r\n'
+             'Content-Length: 0\r\n\r\n',
+             'SIP/2.0 404 Not Here\r\n'
+             'Via: SIP/2.0/UDP 127.0.0.1:5061;branch'
+             '=z9hG4bK-4277144682;rport=5061;received'
+             '=78.251.251.209\r\n'
+             'From: "758198212831088"<sip:758198212831088'
+             '@86.64.162.35>;tag=858043271111089947445360\r\n'
+             'To: "758198212831088"<sip:758198212831088@86.64'
+             '.162.35>;tag=c64e1f832a41ec1c1f4e5673ac5b80f6'
+             '.c635\r\n'
+             'CSeq: 1 PING\r\n'
+             'Call-ID: 4085092783\r\n'
+             'Server: Kamailio (1.5.3-notls (i386/linux))\r\n'
+             'Content-Length: 0\r\n\r\n'
+             ]
+        X = [[int(bytes2bin(x.lower()[:12])[i:i + 4], 2)
+              for i in xrange(0, 96, 4)] for x in X]
+        d = 16
+        Y = [0, 0, 0, 1, 1, 1, 1, 1]
+
+        np.savetxt("/tmp/pkts.dat", X, fmt="%i")
+
+        # kernel = trie.compute_kernel(k, d, training_data=X, m=m)
+        import wrappers
+        kernel = wrappers.load_boost_array("data/kernel.dat")
+
         print kernel
-        print 
+        print
 
         # construct SVM classifier with our mismatch string kernel
         print "Constructing SVM classifier with our mismatch string kernel .."
         svc = svm.SVC(kernel='precomputed')
         print 'Done.'
-        print 
+        print
+
+        # kfd = open("kernel.txt", "a")
+        # kfd.write("\n".join(["%i 0:%i %s" % (
+        #                 Y[i], i + 1,
+        #                 " ".join(["%i:%s" % (j + 1, kernel[i, j])
+        #                           for j in xrange(kernel.shape[1])]))
+        #                      for i in xrange(kernel.shape[0])]))
+        # kfd.close()
+
+        # xfd = open("test.txt", "a")
+        # xfd.write("\n".join(["%i %s" % (
+        #                 Y[i],
+        #                 " ".join(["%i:%s" % (j + 1, X[i][j])
+        #                           for j in xrange(X.shape[1])]))
+        #                      for i in xrange(X.shape[0])]))
+        # xfd.close()
+
+        # d = np.ndarray(kernel.shape[0])
+        # i = 8
+        # for j in xrange(len(d)):
+        #     d[j] = np.sqrt(kernel[i, i] - 2 * kernel[i, j] + kernel[j ,j])
+        # print d
 
         # fit
         print "Fitting against training data .."
         svc.fit(kernel, Y)
-        print "Done (fitting accuracy: %.2f"%(len(nonzero(svc.predict(kernel) == Y)[0])*100.00/len(Y)) + "%)."
-        print         
-                
+        print "Done (fitting accuracy: %.2f" % (len(nonzero(
+                    svc.predict(kernel) == Y)[0]) * 100.00 / len(Y)) + "%)."
+        print
+
 if __name__ == '__main__':
     unittest.main()

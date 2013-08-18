@@ -1,0 +1,8 @@
+/**
+\mainpage Trie documentation
+
+<i>Trie</i> is a C++ implementation of the so-called "mismatch string kernels" first introduced <a href="http://bioinformatics.oxfordjournals.org/content/20/4/467.short">here</a>. Checkout <a href='https://github.com/dohmatob/kernels'>source code</a>. Mismatch string kernels are a powerful technology for ML problems where the problem inputs have a natural encoding as strings on a finite alphabet (protein discrimination, NLP, etc.).
+
+(c) DOHMATOB Elvis Dopgima
+
+*/

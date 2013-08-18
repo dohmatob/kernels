@@ -2,21 +2,19 @@
   \file Trie.cxx
   \author DOHMATOB Elvis Dopgima
   \brief Implementation of Trie.h header file.
-  \todo Use numpy arrays !!!
 */
 
-#define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE Trie test
 
-#include <boost/test/unit_test.hpp>
 #include <boost/assert.hpp>
 #include <boost/assign/std/vector.hpp>
 #include <sstream>
 #include <ctype.h>
 #include <fstream>
+#include <iomanip>
 #include "Trie.h"
 
 using namespace boost::assign;
+
 
 Combinatorics::Chunk Combinatorics::create_chunk(int offset, 
 						 int length, 
@@ -56,7 +54,10 @@ Combinatorics::Trie Combinatorics::create_trienode(int label,
   trie->parent = parent;
   trie->metadata = parent->metadata;
   trie->rootpath << parent->rootpath.str();
-  trie->rootpath << char(__toascii('a') + label);
+  trie->rootpath << "[";
+  trie->rootpath << label;
+  trie->rootpath << "]";
+
   add_child(parent, trie);
 } 
 
@@ -87,37 +88,37 @@ void Combinatorics::destroy_trie(Combinatorics::Trie& trie)
     }
 }
 
-int Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& padding)
-{
-  int nodecount = 0;
+// int Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& padding)
+// {
+//   int nodecount = 0;
 
-  if(trie)
-    {
-      Combinatorics::display_trienode(trie, trie->children.size(), padding);
+//   if(trie)
+//     {
+//       Combinatorics::display_trienode(trie, trie->children.size(), padding);
       
-      nodecount++;
-      padding += " ";
+//       nodecount++;
+//       padding += " ";
   
-      int count = 0;
-      for(Combinatorics::TrieNodeChildren::const_iterator children_it = trie->children.begin(); 
-	  children_it != trie->children.end(); children_it++) 
-	{
-	  count++;
-	  std::string child_padding(padding);
-	  child_padding += (count == trie->children.size()) ? " " : "|";
-	  nodecount += display_trie(children_it->second, child_padding);
-	}
-    }
+//       int count = 0;
+//       for(Combinatorics::TrieNodeChildren::const_iterator children_it = trie->children.begin(); 
+// 	  children_it != trie->children.end(); children_it++) 
+// 	{
+// 	  count++;
+// 	  std::string child_padding(padding);
+// 	  child_padding += (count == trie->children.size()) ? " " : "|";
+// 	  nodecount += display_trie(children_it->second, child_padding);
+// 	}
+//     }
 
-  return nodecount;
-}
+//   return nodecount;
+// }
 
-int Combinatorics::display_trie(const Combinatorics::Trie& trie)
-{
-  std::string padding(" ");
+// int Combinatorics::display_trie(const Combinatorics::Trie& trie)
+// {
+//   std::string padding(" ");
   
-  return Combinatorics::display_trie(trie, padding);
-}
+//   return Combinatorics::display_trie(trie, padding);
+// }
   
 void Combinatorics::compute_metadata(Combinatorics::Trie& trie, 
 				     int d, 
@@ -242,6 +243,7 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie,
 
 void Combinatorics::normalize_kernel(ublas::matrix<double >& kernel)
 {
+  // set k(x, y) = k(x, y) / sqrt(k(x, x)k(y, y)), for all non-diagonal cells (x, y)
   for(int i = 0; i < kernel.size1(); i++)
     {
       for(int j = 0; j < kernel.size2(); j++)
@@ -254,6 +256,7 @@ void Combinatorics::normalize_kernel(ublas::matrix<double >& kernel)
 	}
     }
 
+  // set k = 1 for all diagonal cells (x, x)
   for(int i = 0; i < kernel.size1(); i++)
     {
       kernel(i,i) = 1;
@@ -277,7 +280,8 @@ void Combinatorics::update_kernel(Combinatorics::Trie& trie,
     }
   
   // compute kmer weighting factor
-  double kmer_weight = std::pow(trie->metadata.size(), -2*std::log(trie->metadata.size()));
+  double kmer_weight = std::pow(trie->metadata.size(),
+				-2*std::log(trie->metadata.size()));
 
   // update all kernel entries corresponding to the k-kmer
   kernel += outer_prod(source_counts, source_counts)*kmer_weight;
@@ -288,28 +292,28 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
 {
   if(!is_root(trie))
     {
-      cout << trie->rootpath.str() + "," << trie->metadata.size() << "/";
+      cout << trie->rootpath.str() + "{" << trie->metadata.size() << "}";
     }
   
   return cout;
 }
 
-void Combinatorics::display_trienode(const Combinatorics::Trie& trie, 
-				     int d, 
-				     const std::string& padding)
-{
-  if(trie)
-    {
-      if(is_root(trie))
-	{
-	  std::cout << "//\r\n" << (d > 0 ? " \\" : "") << std::endl;
-	}
-      else
-	{
-	  std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
-	}
-    }
-}
+// void Combinatorics::display_trienode(const Combinatorics::Trie& trie, 
+// 				     int d, 
+// 				     const std::string& padding)
+// {
+//   if(trie)
+//     {
+//       if(is_root(trie))
+// 	{
+// 	  std::cout << "//\r\n" << (d > 0 ? " \\" : "") << std::endl;
+// 	}
+//       else
+// 	{
+// 	  std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
+// 	}
+//     }
+// }
   
 int Combinatorics::expand(Combinatorics::Trie& trie, 
 			   int k, 
@@ -324,15 +328,19 @@ int Combinatorics::expand(Combinatorics::Trie& trie,
   // recompute metadata of node
   bool go_ahead = inspect(trie, d, m, training_dataset);
 
+  if(is_root(trie))
+    {
+      std::cout << "//\r\n \\" << std::endl;
+    }
+  else
+    {
+      std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
+  }
+
+  padding += " ";
+
   if(go_ahead)
     {
-      // display node info
-      display_trienode(trie, d, padding);
-
-      // update padding
-      padding += " ";
-
-
       if(k == 0)
 	{
 	  // increment number of kmers
@@ -345,9 +353,10 @@ int Combinatorics::expand(Combinatorics::Trie& trie,
 	{
 	  for(int j = 0; j < d; j++)
 	    {
+	      std::cout << padding + "|" << std::endl;
 	      std::string child_padding(padding);
 	      child_padding += (j + 1 == d) ? " " : "|";
-	      Trie tmp = create_trienode(j, trie);
+	      create_trienode(j, trie);
 	      nkmers += expand(trie->children[j], k - 1, d, m, training_dataset, kernel, child_padding);
 	    }
 	}
@@ -415,113 +424,6 @@ Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::s
   
   return training_dataset;
 }
-
-using namespace Combinatorics;
-      
-BOOST_AUTO_TEST_CASE(test_Chunkconstructors)
-{
-  Chunk chunk = create_chunk(0, 3, 1);
-  BOOST_CHECK_EQUAL(chunk.offset, 0);
-  BOOST_CHECK_EQUAL(chunk.length, 3);
-  BOOST_CHECK_EQUAL(chunk.mismatches, 1);
-}
-
-BOOST_AUTO_TEST_CASE(test_Chunks_constructors)
-{
-  Chunks chunks;
-  Chunk chunk = create_chunk(2, 5, 0);
-  chunks += chunk;
-
-  for(Chunks::const_iterator chunks_it = chunks.begin(); chunks_it != chunks.end(); 
-      chunks_it++)
-    {
-      chunk = *chunks_it;
-      BOOST_CHECK_EQUAL(chunk.offset, 2);
-      BOOST_CHECK_EQUAL(chunk.length, 5);
-      BOOST_CHECK_EQUAL(chunk.mismatches, 0);
-    }
-
-  BOOST_CHECK_EQUAL(chunks.size(), 1);
-  Chunks::iterator chunks_it = chunks.begin();
-  chunks_it = chunks.erase(chunks_it);
-  BOOST_CHECK(chunks.empty());
-}
-
-BOOST_AUTO_TEST_CASE(test_TrieMetadata_constructors)
-{
-  TrieMetadata metadata;
-  Chunks chunks;
-  Chunk chunk = create_chunk(2, 5, 0);
-  chunks += chunk;
-  chunk = create_chunk(1, 2, 1);
-  chunks += chunk;
-  metadata[13] = chunks;
-  BOOST_CHECK_EQUAL(metadata.size(), 1);
-}
-
-BOOST_AUTO_TEST_CASE(test_compute_metadata)
-{  
-  Trie trie = create_trienode();
-
-  ublas::matrix<double > kernel = ublas::zero_matrix<double >(3,3);
-
-  Combinatorics::TrainingDataset training_dataset;
-  std::vector<int > seq;
-  seq += 0,0,1,0;
-  training_dataset += seq;
-  seq.clear();
-  seq += 1,0,1,0; 
-  training_dataset += seq;
-  seq.clear();
-  seq += 1,1,1,0; 
-  training_dataset += seq;
-  seq.clear();
-
-  compute_metadata(trie,
-		   2, // branching degree (number of children per internal node
-		   training_dataset
-		   );
-
-  for(TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); metadata_it != trie->metadata.end(); 
-      metadata_it++)
-    {
-      Chunks chunks = metadata_it->second;
-      BOOST_CHECK_EQUAL(chunks.size(), 3);  
-    }
-
-  BOOST_CHECK_EQUAL(trie->metadata.size(), 3); 
-}
-
-BOOST_AUTO_TEST_CASE(test_misc)
-{
-  Trie trie = create_trienode();
-
-  TrainingDataset training_dataset;
-
-  training_dataset = load_training_dataset("data/digits_data.dat");
-  int nsamples = 250;
-  int k = 6;
-  int d = 16;
-  int m = 1;
-  training_dataset = TrainingDataset(training_dataset.begin(), training_dataset.begin() + 
-				     nsamples);
-  ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size(), 
-							      training_dataset.size());
-
-  // expand
-  int nkmers = expand(trie, k, d, m, training_dataset, kernel);
-  std::cout << nkmers << " " << k << "-mers out of " << std::pow(d, k) << " survived." 
-	    << std::endl;
-  
-  // normalize kernel to remove the 'bias of length'
-  Combinatorics::normalize_kernel(kernel);
-    
-  // dump kernel disk
-  std::ofstream kernelfile;
-  kernelfile.open ("data/kernel.dat");
-  kernelfile << kernel;
-  kernelfile.close();
-}  
 
 
 

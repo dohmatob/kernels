@@ -302,34 +302,6 @@ namespace Combinatorics
     \return loaded dataset
   */
   TrainingDataset load_training_dataset(const std::string& filename);
-
-  /*!
-    Function for fancy-displaying trie node.
-
-    \param trie pointer to node to be displayed
-    \param d branching degree of trie node
-    \param padding a control string used in displaying the node
-  */
-  void display_trienode(const Trie& trie, int d, const std::string& padding);
-
-  /*!
-    Function to display trie.
-
-    \param trie pointer to root node of child
-    \param padding a control string used in displaying
-    
-    \return number of nodes in trie
-  */
-  int display_trie(const Trie& trie, std::string& padding);
-
-  /*!
-    An overloading of display_trie(..) function.
-    
-    \param trie pointer to root node of child
-
-    \return number of nodes in trie
-  */
-  int display_trie(const Trie& trie);
 };
 
 #endif // TRIE_H
