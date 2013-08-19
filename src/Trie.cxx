@@ -282,18 +282,18 @@ void Combinatorics::update_kernel(Combinatorics::Trie& trie,
 				  int m, 
 				  ublas::matrix<double >& kernel)
 {
-  // i_it points to some (i, n_i), where n_i is the number of surviving
-  // k-grams of training data point number i, that's those m-grams of the
-  // ith input string which lie withing m mismatches of the the k-mer represented
-  // by this leaf node
+  // i_it points to a pair (i, s_i), where s_i is the list of urviving k-grams
+  // of the ith input string, those m-grams of the ith input string which lie
+  // within m mismatches of the the k-mer represented by this leaf node
   for(Combinatorics::TrieMetadata::const_iterator i_it = trie->metadata.begin(); 
       i_it != trie->metadata.end(); i_it++)
     {
-      // j_it points to some (j, n_j); similary definition as for i and n_i above
+      // j_it points to some (j, s_j); similary definition as for i and s_i above
       for(Combinatorics::TrieMetadata::const_iterator j_it = trie->metadata.begin(); 
 	  j_it != trie->metadata.end(); j_it++)
 	{
-	  // increment kernel[i, j] by z(n_i, n_j) := exp(-(n_i + n_j))
+	  // increment kernel[i, j] by z(n_i, n_j) := exp(-(n_i + n_j)), where n_i
+	  // (resp. n_j) is the cardinality of s_i (resp. s_j)
 	  kernel(i_it->first, j_it->first) += std::exp(-(double)(i_it->second.size() + \
 								 j_it->second.size()));
 	}
