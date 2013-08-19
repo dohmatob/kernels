@@ -1,353 +1,298 @@
 """
-:Module: trie
-:Synopsis: A quick-and-dirty implementation of the calculus of
-"mistmatch string kernels"
-:Author: DOHMATOB Elvis Dopgima
+:Module: Trie
+:Synopsis: Python implementation of Trie (shor for "Retrieval Tree")
+data structure
+:Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com>
 
 """
 
-import unittest
+import nose
+import nose.tools
+import numpy.testing
 import numpy as np
-from numpy import (array, zeros, nonzero, meshgrid,
-                   outer, sqrt, ndindex)
-from sklearn import svm
-
-ALPHABET = ["\\x%02x" % x
-             for x in xrange(256)]
 
 
-class Trie:
-    def __init__(self, label=-1, parent=0, alphabet=ALPHABET):
-        self._label = label
-        self._meta = {}
-        self._rootpath = ""
-        self._children = dict()
-        self.set_parent(parent)
-        self._nodecount = 0
-        self._alphabet = alphabet
+def normalize_kernel(kernel):
+    """
+    Normalizes a kernel: kernel[x, y] by doing:
 
-        if not self.is_root():
-            self._rootpath += self._alphabet[label]
+        kernel[x, y] / sqrt(kernel[x, x] * kernel[y, y])
+
+    """
+
+    if not isinstance(kernel, np.ndarray):
+        kernel = np.ndarray(kernel)
+
+    assert kernel.ndim == 2
+
+    for i in xrange(kernel.shape[0]):
+        for j in xrange(kernel.shape[1]):
+            if i < j:
+                q = np.sqrt(kernel[i, i] * kernel[j, j])
+                if q > 0:
+                    kernel[i, j] /= q
+                    kernel[j, i] = kernel[i, j]
+
+        np.fill_diagonal(kernel, 1.)
+
+    return kernel
+
+
+class Trie(object):
+    """
+    Trie (short for "Retrieval Tree") implementation.
+
+    """
+
+    def __init__(self, label=None, level=0, parent=None):
+        self.label = label
+        self.level = level
+        self.full_label = ""
+        self.children = {}
+        self.kgrams = {}
+        self.parent = parent
+
+        if not parent is None:
+            parent.add_child(self)
 
     def is_root(self):
-        return (self._parent == 0)
+        """
+        Checks whether this node is the root.
 
-    def inspect(self, training_data, m):
+        """
+
+        return self.parent is None
+
+    def is_leaf(self):
+        """
+        Checks whether this node is a leaf.
+
+        """
+
+        return len(self.children) == 0
+
+    def copy_kgrams(self):
+        """
+        Copies the kgram data for this node (not the reference pointer,
+        as this would have unpredictable consequences).
+
+        """
+
+        return {index: np.array(chunks)
+                for index, chunks in self.kgrams.iteritems()}
+
+    def add_child(self, child):
+        """
+        Adds a new child to this node.
+
+        """
+
+        # initialize ngram data to that of parent
+        child.kgrams = self.copy_kgrams()
+
+        # child is one level beyond parent
+        child.level = self.level + 1
+
+        # parent's full label (concatenation of labels on edges leading
+        # from root node) is a prefix to child's the remainder is one
+        # symbol, the child's label
+        child.full_label = '%s[%s]' % (self.full_label, child.label)
+
+        # let parent adopt child: commit child to parent's booklist
+        self.children[child.label] = child
+
+        # let child adopt parent
+        child.parent = self
+
+    def compute_kgrams(self, training_data, k):
+        """
+        Computes the meta-data for this node: i.e, for each input string
+        training_data[index], computes the list of offsets of it's k-grams
+        together with the mismatch counts (intialially zero) for this
+        k-grams with the k-mer represented by this node `self`.
+
+        """
+
+        # sanity checks
+        if not isinstance(training_data, np.ndarray):
+            training_data = np.array(training_data)
+        if training_data.ndim == 1:
+            training_data = np.array([training_data])
+
+        assert training_data.ndim == 2
+
+        # compute the len(training_data[index]) - k + 1 kgrams of each
+        # input training string
+        for index in xrange(len(training_data)):
+            self.kgrams[index] = np.array([(offset,
+                                            0  # no mismatch yet
+                                            )
+                                           for offset in xrange(
+                        len(training_data[index]) - k + 1)])
+
+    def process_node(self, training_data, k, m):
+        """
+        Processes this node.
+
+        """
+
+        # sanity checks
+        if not isinstance(training_data, np.ndarray):
+            training_data = np.array(training_data)
+        if training_data.ndim == 1:
+            training_data = np.array([training_data])
+
+        assert training_data.ndim == 2
+
         if self.is_root():
-            # populate meta data structures
-            for index in xrange(len(training_data)):
-                training_data[index] = array(training_data[index])
-                starts = xrange(len(training_data[index]) - self.get_nchildren())
-                self._meta[index] = array([(start, start, 0) for start in starts])
+            # compute meta-data
+            self.compute_kgrams(training_data, k)
         else:
-            meta = dict(self._meta)
-            for index, lmers in meta.iteritems():
-                # check against length overflow
-                valid = nonzero(lmers[:,1] < len(training_data[index]))[0]
-                if len(valid) == 0:
-                    del self._meta[index]
-                    continue
-                lmers = lmers[valid,:]
+            # loop on all k-kgrams of input string training_data[index]
+            for index, chunks in self.kgrams.iteritems():
+                # update mismatch counts
+                chunks[..., 1] += (training_data[index][
+                        chunks[..., 0] + self.level - 1] != self.label)
 
-                # update the mismatches of the lmers in this source string
-                mistmatched_lmers = nonzero(training_data[index][lmers[:,1]] != self._label)[0]
-                lmers[mistmatched_lmers,2] += 1
+                # delete chunks that present more than m mismatches
+                self.kgrams[index] = np.delete(chunks,
+                                                np.nonzero(chunks[..., 1] > m),
+                                                axis=0)
 
-                # increment length of all the lmers
-                lmers[:,1] += 1
+            # delete entries with empty chunk list
+            self.kgrams = {index: chunks for (
+                    index, chunks) in self.kgrams.iteritems() if len(chunks)}
 
-                # kill all lmers which have mismatches above the threshold, m
-                valid = nonzero(lmers[:,2] <= m)[0]
-                if len(valid) == 0:
-                    del self._meta[index]
-                    continue
-                lmers = lmers[valid,:]
+        return len(self.kgrams)
 
-                # update node meta data
-                self._meta[index] = lmers
+    def update_kernel(self, kernel, m, weighting=True):
+        for i in self.kgrams:
+            for j in self.kgrams:
+                if weighting:
+                    kernel[i, j] += np.exp(-(len(self.kgrams[i]
+                                                 ) + len(self.kgrams[j])))
+                else:
+                    kernel[i, j] += len(self.kgrams[i]) * len(self.kgrams[j])
 
-        return len(self._meta) > 0 
-        
-    def expand(self, k, d, training_data, m, kernel, padding=" "):
-        '''
-        Recursive method to grow a Trie object.
+    def __str__(self):
+        return self.full_label + str(dict(
+                (k, v.tolist()) for k, v in self.kgrams.iteritems()))
 
-        Parameters
-        ----------
-        k : int
-            depth limit of Trie growth
-        d : int
-            branching degree of Trie (noumber of children nodes to grow)
-        training_data : numpy_like 2D array
-            training data 
-        m : int
-            mismatch tolerance (so it won't be a problem if two words differ by at most m letters)
-        kernel : numpy_like 2D array
-            shared reference to kernel being computed
-        padding : string
-            marker for trie layout display 
+    def traverse(self, training_data, l, k, m, kernel=None, indentation=""):
+        # initialize kernel if None
+        if kernel is None:
+            kernel = np.zeros((len(training_data), len(training_data)))
 
-        '''
-                   
-        rootpathcount = 0 # number of survived feature-kmers
+        # counts the number of leafs which are decendants of this node
+        nkmers = 0
 
-        # inspect node and update its meta data
-        go_ahead = self.inspect(training_data, m)
+        # process the node
+        go_ahead = self.process_node(training_data, k, m)
 
+        # display the node
         if self.is_root():
             print "//\r\n \\"
         else:
-            print padding[:-1] + '+-' + self._rootpath + ',' + str(len(self._meta)) + '/'
-        padding += ' '
+            print indentation[:-1] + "+-" + str(self)
 
-        # does this node survive ?
+        indentation += " "
+
+        # is node dead ?
         if go_ahead:
-            # is this a surving feature k-mer ?
+            # we've hit a leaf
             if k == 0:
-                # compute the source weights, this far,  of the training sequences
-                source_weights = array([len(lmers) for lmers in self._meta.values()])
-                
-                # compute the contributions of this feature k-mer to the kernel
-                contributions = outer(source_weights, source_weights)
-                
+                # yes, this is one more leaf/kmer
+                nkmers += 1
+
                 # update the kernel
-                kernel[meshgrid(self._meta.keys(), self._meta.keys())] += contributions
-                rootpathcount += 1
+                self.update_kernel(kernel, m)
             else:
-                # recursively expand all children 
-                for j in xrange(d):
-                    # span a new child
-                    _ = Trie(j, self, alphabet=self._alphabet) 
+                # recursively bear and traverse child nodes
+                for j in xrange(l):
+                    # indentation for child display
+                    print indentation + "|"
+                    child_indentation = indentation + (" " if (
+                        j + 1) == l else "|")
 
-                    # expand child
-                    child_padding = padding
-                    if j + 1 == d:
-                        child_padding += ' '
-                    else:
-                        child_padding += '|'
-                    ga, rc = self._children[j].expand(k-1, d, training_data, m, kernel, padding=child_padding)                        
+                    # bear child
+                    Trie(label=j, parent=self)
 
-                    # update the counts 
-                    if ga:
-                        rootpathcount += rc
-                        
-        return go_ahead, rootpathcount
+                    # traverse child
+                    kernel, child_nkmers, child_go_ahead = self.children[
+                        j].traverse(training_data, l, k - 1, m, kernel=kernel,
+                        indentation=child_indentation
+                        )
 
-    def is_leaf(self):
-        return self.get_nchildren() == 0
+                    nkmers += child_nkmers if child_go_ahead else 0
 
-    def do_leafs(self, padding=' '):
-        if self.is_root():
-            print "root/\r\n \\"            
-        else:
-            print padding[:-1] + '+-' + self._rootpath + '/'
-        padding += ' '
-
-        count = 0
-        for _, child in self.get_children().iteritems():
-            count += 1
-            print padding + '|'
-            if not child.is_leaf():
-                if count == self.get_nchildren():
-                    child.do_leafs(padding=padding + ' ')
-                else:
-                    child.do_leafs(padding=padding + '|')                    
-            else:
-                print padding + '+-' + child.get_rootpath()
-
-    def compute_kernel(self, k, d, training_data, m=0):
-        '''
-        Method to compute mistmatch string kernel.
-
-        Parameters
-        ----------
-        k : int
-            depth limit of Trie growth
-        d : int
-            branching degree of Trie (noumber of children nodes to grow)
-        training_data : numpy_like 2D array
-            training data 
-        m : int (default 0)
-            mismatch tolerance (so it won't be a problem if two words differ by at most m letters)
-        kernel : numpy_like 2D array
-            shared reference to kernel being computed
-        padding : string
-            marker for trie layout display 
-
-        '''
-
-        n = len(training_data)
-        # intialize kernel
-        kernel = zeros((n, n))
-        
-        # expand trie, constrainted by the training data, and update kernel along the way
-        _, rc = self.expand(k, d, training_data=training_data, m=m, kernel=kernel)
-
-        # normalize kernel to remove 'length bias'
-        N = len(training_data)
-        for x, y in ndindex((N,N)):
-            if x == y:
-                continue
-            q = kernel[x,x]*kernel[y,y]
-            if q:
-                kernel[x,y] /= sqrt(q)
-
-        import numpy as np
-        np.fill_diagonal(kernel, 1.)
-        print "%d out of %d (%d,%d)-mers survived"%(rc, d**k, k, m)
-
-        return kernel
-
-    def set_parent(self, parent):
-        self._parent = parent
-
-        if parent:
-            self._rootpath = parent.get_rootpath()
-            self._meta = parent.get_meta()
-            parent.add_child(self)
-
-    def add_child(self, child):
-        self._children[child.get_label()] = child
-        self._nodecount += 1
-    
-    def get_nodecount(self):
-        return self._nodecount
-
-    def get_label(self):
-        return self._label
-
-    def get_rootpath(self):
-        return self._rootpath
-
-    def get_meta(self):
-        return dict(self._meta)
-
-    def get_children(self):
-        return dict(self._children)
-
-    def get_nchildren(self):
-        return len(self._children)
-
-    def get_parent(self):
-        return self._parent
+        return kernel, nkmers, go_ahead
 
 
-import binascii
-def byte2bin(byte):
-    y = bin(int(binascii.hexlify(byte), 16))[2:]
-    return "0" * (8 - len(y)) + y
+def test_trie_constructor():
+    t = Trie()
+    nose.tools.assert_true(t.is_root())
+    nose.tools.assert_true(t.is_leaf())
+    nose.tools.assert_equal(t.label, None)
 
-    return y
+    c = Trie(2, parent=t)
+    nose.tools.assert_false(c.is_root())
+    nose.tools.assert_true(c.is_leaf())
+    nose.tools.assert_false(t.is_leaf())
+    nose.tools.assert_equal(c.label, 2)
 
 
-def bytes2bin(buf):
-    return "".join([byte2bin(byte) for byte in buf])
+def test_compute_kgrams():
+    t = Trie()
+    x = [0, 1, 0, 0, 1]
+    t.compute_kgrams(x, 1)
+    numpy.testing.assert_array_equal(t.kgrams[0], [[0, 0],
+                                                   [1, 0],
+                                                   [2, 0],
+                                                   [3, 0],
+                                                   [4, 0]
+                                                   ]
+                                     )
 
 
-class TestTrie(unittest.TestCase):
-    def test_constructors(self):
-        trie = Trie()
-        self.assertEqual(trie.get_label(), -1)
+def test_process_node():
+    t = Trie()
+    x = [0, 1, 0, 0, 1]
 
-    def test_compute_kernel(self):
-        trie = Trie()
-        k = 4
-        d = 256
-        m = 1
+    # root node
+    t.process_node(x, 1, 0)
+    numpy.testing.assert_array_equal(t.kgrams[0], [[0, 0],
+                                                   [1, 0],
+                                                   [2, 0],
+                                                   [3, 0],
+                                                   [4, 0]
+                                                   ]
+                                     )
 
-        X = np.zeros((1000, 12))
-        X[:len(X) / 3, :6] = 1
-        X[len(X) / 3:2 * len(X) / 3:, 3:9] = 1
-        X[2 * len(X) / 3:, 6:] = 1
+    # left child
+    c = Trie(label=0, parent=t)
+    c.process_node(x, 1, 0)
+    numpy.testing.assert_array_equal(c.kgrams[0], [[0, 0],
+                                                   [2, 0],
+                                                   [3, 0],
+                                                   ]
+                                     )
 
-        Y = np.zeros(len(X))
-        Y[:len(Y) / 3] = 0
-        Y[len(Y) / 3:2 * len(Y) / 3:] = 1
-        Y[2 * len(Y) / 3:] = 2
+    # right child
+    c = Trie(label=1, parent=t)
+    c.process_node(x, 1, 0)
+    numpy.testing.assert_array_equal(c.kgrams[0], [[1, 0],
+                                                   [4, 0],
+                                                   ]
+                                     )
 
-        X = ['GET /elvis.jpg HTTP/1.1\r\n\r\n',
-             'POST /gael.jpg HTTP/1.1\r\n\r\n',
-             'HEAD /michael.jpg HTTP/1.1\r\n\r\n',
-             'SIP/2.0 480 Offline\r\n\r\n',
-             'SIP/2.0 200 OK\r\n\r\n',
-             'SIP/2.0 401 Not Authorized\r\n\r\n',
-             'ekiga.net.sip > is148601.local.sip-tls: '
-             '[udp sum ok] SIP, length: 404\r\n'
-             'SIP/2.0 404 Not Here\r\n'
-             'Via: SIP/2.0/UDP 127.0.0.1:5061;branch'
-             '=z9hG4bK-4277144682;rport=5061;received'
-             '=78.251.251.209\r\n'
-             'From: "758198212831088"<sip:758198212831088'
-             '@86.64.162.35>;tag=858043271111089947445360\r\n'
-             'To: "758198212831088"<sip:758198212831088@86.64'
-             '.162.35>;tag=c64e1f832a41ec1c1f4e5673ac5b80f6'
-             '.c635\r\n'
-             'CSeq: 1 OPTIONS\r\n'
-             'Call-ID: 4085092783\r\n'
-             'Server: Kamailio (1.5.3-notls (i386/linux))\r\n'
-             'Content-Length: 0\r\n\r\n',
-             'SIP/2.0 404 Not Here\r\n'
-             'Via: SIP/2.0/UDP 127.0.0.1:5061;branch'
-             '=z9hG4bK-4277144682;rport=5061;received'
-             '=78.251.251.209\r\n'
-             'From: "758198212831088"<sip:758198212831088'
-             '@86.64.162.35>;tag=858043271111089947445360\r\n'
-             'To: "758198212831088"<sip:758198212831088@86.64'
-             '.162.35>;tag=c64e1f832a41ec1c1f4e5673ac5b80f6'
-             '.c635\r\n'
-             'CSeq: 1 PING\r\n'
-             'Call-ID: 4085092783\r\n'
-             'Server: Kamailio (1.5.3-notls (i386/linux))\r\n'
-             'Content-Length: 0\r\n\r\n'
-             ]
-        X = [[int(bytes2bin(x.lower()[:12])[i:i + 4], 2)
-              for i in xrange(0, 96, 4)] for x in X]
-        d = 16
-        Y = [0, 0, 0, 1, 1, 1, 1, 1]
-
-        np.savetxt("/tmp/pkts.dat", X, fmt="%i")
-
-        # kernel = trie.compute_kernel(k, d, training_data=X, m=m)
-        import wrappers
-        kernel = wrappers.load_boost_array("data/kernel.dat")
-
-        print kernel
-        print
-
-        # construct SVM classifier with our mismatch string kernel
-        print "Constructing SVM classifier with our mismatch string kernel .."
-        svc = svm.SVC(kernel='precomputed')
-        print 'Done.'
-        print
-
-        # kfd = open("kernel.txt", "a")
-        # kfd.write("\n".join(["%i 0:%i %s" % (
-        #                 Y[i], i + 1,
-        #                 " ".join(["%i:%s" % (j + 1, kernel[i, j])
-        #                           for j in xrange(kernel.shape[1])]))
-        #                      for i in xrange(kernel.shape[0])]))
-        # kfd.close()
-
-        # xfd = open("test.txt", "a")
-        # xfd.write("\n".join(["%i %s" % (
-        #                 Y[i],
-        #                 " ".join(["%i:%s" % (j + 1, X[i][j])
-        #                           for j in xrange(X.shape[1])]))
-        #                      for i in xrange(X.shape[0])]))
-        # xfd.close()
-
-        # d = np.ndarray(kernel.shape[0])
-        # i = 8
-        # for j in xrange(len(d)):
-        #     d[j] = np.sqrt(kernel[i, i] - 2 * kernel[i, j] + kernel[j ,j])
-        # print d
-
-        # fit
-        print "Fitting against training data .."
-        svc.fit(kernel, Y)
-        print "Done (fitting accuracy: %.2f" % (len(nonzero(
-                    svc.predict(kernel) == Y)[0]) * 100.00 / len(Y)) + "%)."
-        print
 
 if __name__ == '__main__':
-    unittest.main()
+    trie = Trie()
+
+    X = np.zeros((90, 18))
+    X[:30, :6] = 1
+    X[30:60, 6:12] = 1
+    X[60:, 12:] = 1
+
+    kernel, _, _ = trie.traverse(X, 2, 4, 0)
+    print normalize_kernel(kernel)
