@@ -28,11 +28,13 @@ Combinatorics::Chunk Combinatorics::create_chunk(int offset,
   return *chunk;
 }
   
+
 void Combinatorics::add_child(Combinatorics::Trie& parent, 
 			      Trie& child)
 {
   parent->children[child->label] = child;
 } 
+
 
 Combinatorics::Trie Combinatorics::create_trienode(int label)
 {
@@ -41,10 +43,12 @@ Combinatorics::Trie Combinatorics::create_trienode(int label)
   trie->parent = 0;
 }
 
+
 Combinatorics::Trie Combinatorics::create_trienode()
 {
   return create_trienode(-1);
 }
+
 
 Combinatorics::Trie Combinatorics::create_trienode(int label, 
 						   Combinatorics::Trie& parent)
@@ -61,10 +65,12 @@ Combinatorics::Trie Combinatorics::create_trienode(int label,
   add_child(parent, trie);
 } 
 
+
 bool Combinatorics::is_root(const Combinatorics::Trie& trie)
 {
   return trie->parent == 0;
 }
+
 
 void Combinatorics::destroy_trie(Combinatorics::Trie& trie)
 {
@@ -88,25 +94,25 @@ void Combinatorics::destroy_trie(Combinatorics::Trie& trie)
     }
 }
 
-// int Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& padding)
+// int Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& indentation)
 // {
 //   int nodecount = 0;
 
 //   if(trie)
 //     {
-//       Combinatorics::display_trienode(trie, trie->children.size(), padding);
+//       Combinatorics::display_trienode(trie, trie->children.size(), indentation);
       
 //       nodecount++;
-//       padding += " ";
+//       indentation += " ";
   
 //       int count = 0;
 //       for(Combinatorics::TrieNodeChildren::const_iterator children_it = trie->children.begin(); 
 // 	  children_it != trie->children.end(); children_it++) 
 // 	{
 // 	  count++;
-// 	  std::string child_padding(padding);
-// 	  child_padding += (count == trie->children.size()) ? " " : "|";
-// 	  nodecount += display_trie(children_it->second, child_padding);
+// 	  std::string child_indentation(indentation);
+// 	  child_indentation += (count == trie->children.size()) ? " " : "|";
+// 	  nodecount += display_trie(children_it->second, child_indentation);
 // 	}
 //     }
 
@@ -115,10 +121,11 @@ void Combinatorics::destroy_trie(Combinatorics::Trie& trie)
 
 // int Combinatorics::display_trie(const Combinatorics::Trie& trie)
 // {
-//   std::string padding(" ");
+//   std::string indentation(" ");
   
-//   return Combinatorics::display_trie(trie, padding);
+//   return Combinatorics::display_trie(trie, indentation);
 // }
+
   
 void Combinatorics::compute_metadata(Combinatorics::Trie& trie, 
 				     int d, 
@@ -136,6 +143,7 @@ void Combinatorics::compute_metadata(Combinatorics::Trie& trie,
     }
 }
 
+
 std::ostream& Combinatorics::operator<<(std::ostream& cout, 
 					const Combinatorics::Chunk& chunk)
 {
@@ -143,6 +151,7 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
 
   return cout;
 }
+
 
 std::ostream& Combinatorics::operator<<(std::ostream& cout, 
 					const Combinatorics::Chunks& chunks)
@@ -159,6 +168,7 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
   return cout;
 }
 
+
 std::ostream& Combinatorics::operator<<(std::ostream& cout, 
 					const Combinatorics::TrieMetadata& metadata)
 {
@@ -174,6 +184,7 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
   return cout;
 }
   
+
 void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie, 
 				    int index, 
 				    int m, 
@@ -204,6 +215,7 @@ void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie,
   // update metadata entry
   trie->metadata[index] = chunks;
 }
+
   
 bool Combinatorics::inspect(Combinatorics::Trie& trie, 
 			    int d, 
@@ -212,7 +224,8 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie,
 {
   if(is_root(trie))
     {
-      // create meta data for root node (this will be copied to children nodes as they're created
+      // create meta data for root node (this will be copied to children
+      // nodes as they're created along)
       Combinatorics::compute_metadata(trie, d, training_dataset);
     }	  
   else
@@ -223,7 +236,7 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie,
 	{
 	  int index = metadata_it->first;
 
-	  // trim-off all chunks that have hit the mismatch threshold (m)
+	  // trim-off all chunks that have exceeded the mismatch threshold (m)
 	  Combinatorics::trim_bad_chunks(trie, index, m, training_dataset);
 
 	  Combinatorics::Chunks chunks = metadata_it->second;
@@ -233,13 +246,14 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie,
 	      trie->metadata.erase(index);
 	    }
 	  
-	  // proceed 
+	  // next
 	  metadata_it++;
 	}
     }
-    
+
   return !trie->metadata.empty(); 
 }
+
 
 void Combinatorics::normalize_kernel(ublas::matrix<double >& kernel)
 {
@@ -263,44 +277,45 @@ void Combinatorics::normalize_kernel(ublas::matrix<double >& kernel)
     }
 }
 
+
 void Combinatorics::update_kernel(Combinatorics::Trie& trie, 
 				  int m, 
 				  ublas::matrix<double >& kernel)
 {
-  // compute source weights for surving k-mers
-  ublas::vector<double > source_counts = ublas::scalar_vector<double >(kernel.size1(), 0);  
-  for(Combinatorics::TrieMetadata::const_iterator metadata_it = trie->metadata.begin(); 
-      metadata_it != trie->metadata.end(); metadata_it++)
+  // i_it points to some (i, n_i), where n_i is the number of surviving
+  // k-grams of training data point number i, that's those m-grams of the
+  // ith input string which lie withing m mismatches of the the k-mer represented
+  // by this leaf node
+  for(Combinatorics::TrieMetadata::const_iterator i_it = trie->metadata.begin(); 
+      i_it != trie->metadata.end(); i_it++)
     {
-      int index = metadata_it->first;
-      Chunks chunks = metadata_it->second;
-
-      // update source count
-      source_counts[index] += chunks.size();
+      // j_it points to some (j, n_j); similary definition as for i and n_i above
+      for(Combinatorics::TrieMetadata::const_iterator j_it = trie->metadata.begin(); 
+	  j_it != trie->metadata.end(); j_it++)
+	{
+	  // increment kernel[i, j] by z(n_i, n_j) := exp(-(n_i + n_j))
+	  kernel(i_it->first, j_it->first) += std::exp(-(double)(i_it->second.size() + \
+								 j_it->second.size()));
+	}
     }
-  
-  // compute kmer weighting factor
-  double kmer_weight = std::pow(trie->metadata.size(),
-				-2*std::log(trie->metadata.size()));
-
-  // update all kernel entries corresponding to the k-kmer
-  kernel += outer_prod(source_counts, source_counts)*kmer_weight;
 }
+
 
 std::ostream& Combinatorics::operator<<(std::ostream& cout, 
 					const Combinatorics::Trie& trie)
 {
   if(!is_root(trie))
     {
-      cout << trie->rootpath.str() + "{" << trie->metadata.size() << "}";
+      cout << trie->rootpath.str() << trie->metadata;
     }
   
   return cout;
 }
 
+
 // void Combinatorics::display_trienode(const Combinatorics::Trie& trie, 
 // 				     int d, 
-// 				     const std::string& padding)
+// 				     const std::string& indentation)
 // {
 //   if(trie)
 //     {
@@ -310,54 +325,62 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
 // 	}
 //       else
 // 	{
-// 	  std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
+// 	  std::cout << indentation.substr(0, indentation.length() - 1) + "+-" << trie << std::endl;
 // 	}
 //     }
 // }
   
+
 int Combinatorics::expand(Combinatorics::Trie& trie, 
-			   int k, 
-			   int d, 
-			   int m, 
-			   Combinatorics::TrainingDataset& training_dataset,
-			   ublas::matrix<double >& kernel, 
-			   std::string& padding)
+			  int k, 
+			  int d, 
+			  int m, 
+			  Combinatorics::TrainingDataset& training_dataset,
+			  ublas::matrix<double >& kernel, 
+			  std::string& indentation)
 {
   int nkmers = 0;
 
-  // recompute metadata of node
+  // recompute metadata of node, and determine it survives
   bool go_ahead = inspect(trie, d, m, training_dataset);
 
+  // display this node
   if(is_root(trie))
     {
       std::cout << "//\r\n \\" << std::endl;
     }
   else
     {
-      std::cout << padding.substr(0, padding.length() - 1) + "+-" << trie << std::endl;
+      std::cout << indentation.substr(0, indentation.length() - 1) + "+-" << trie << std::endl;
   }
 
-  padding += " ";
+  indentation += " ";
 
+  // explore node further
   if(go_ahead)
     {
-      if(k == 0)
+      if(k == 0)  // are we at a leaf ?
 	{
 	  // increment number of kmers
 	  nkmers++;
 
-	  // updata kernel
+	  // update kernel
 	  Combinatorics::update_kernel(trie, m, kernel);
 	}
       else
 	{
+	  // recursively expand all children nodes
 	  for(int j = 0; j < d; j++)
 	    {
-	      std::cout << padding + "|" << std::endl;
-	      std::string child_padding(padding);
-	      child_padding += (j + 1 == d) ? " " : "|";
+	      // compute indentation for child display
+	      std::cout << indentation + "|" << std::endl;
+	      std::string child_indentation(indentation);
+	      child_indentation += (j + 1 == d) ? " " : "|";
+
+	      // bear new child with label j and expand it
 	      create_trienode(j, trie);
-	      nkmers += expand(trie->children[j], k - 1, d, m, training_dataset, kernel, child_padding);
+	      nkmers += expand(trie->children[j], k - 1, d, m, training_dataset,
+			       kernel, child_indentation);
 	    }
 	}
     }
@@ -367,23 +390,26 @@ int Combinatorics::expand(Combinatorics::Trie& trie,
       Combinatorics::destroy_trie(trie);
     }
 
+  // return number of surviving leafs (k-mers)
   return nkmers;
 }
 
+
 int Combinatorics::expand(Combinatorics::Trie& trie, 
-			   int k, 
-			   int d, 
-			   int m, 
-			   Combinatorics::TrainingDataset& training_dataset,
-			   ublas::matrix<double >& kernel)
+			  int k, 
+			  int d, 
+			  int m, 
+			  Combinatorics::TrainingDataset& training_dataset,
+			  ublas::matrix<double >& kernel)
 {
-  // intantiate padding
-  std::string padding(" ");
+  // intantiate indentation
+  std::string indentation(" ");
 
   // delegate to other version
-  return expand(trie, k, d, m, training_dataset, kernel, padding);
+  return expand(trie, k, d, m, training_dataset, kernel, indentation);
 }
    
+
 Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::string& filename)
 {
   // XXX check that filename exists

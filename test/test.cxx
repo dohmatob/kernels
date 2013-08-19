@@ -132,8 +132,6 @@ BOOST_AUTO_TEST_CASE(test_digits_data)
   // normalize kernel to remove the 'bias of length'
   Combinatorics::normalize_kernel(kernel);
 
-  std::cout << "Kernel:" << std::endl << kernel << std::endl;
-
   // dump kernel unto disk
   std::ofstream kernelfile;
   kernelfile.open("data/digits_kernel.dat");

@@ -234,11 +234,11 @@ namespace Combinatorics
     \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
     \param training_dataset bail of training sequences
     \param kernel a reference to the mismatch kernel
-    \param padding a control string used in displaying the node
+    \param indentation a control string used in displaying the node
 
     \return number of surviving k-mers
   */
-  int expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel, std::string& padding);
+  int expand(Trie& trie, int k, int d, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel, std::string& indentation);
 
   /*!
     An overloading of expand(..).
