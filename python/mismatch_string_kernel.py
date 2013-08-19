@@ -11,7 +11,7 @@ import trie
 
 class MismatchStringKernel(object):
     """
-    Python implementation of Mismatch String Kernels. See r
+    Python implementation of Mismatch String Kernels. See reference above.
 
     """
 
