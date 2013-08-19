@@ -73,7 +73,7 @@ class MismatchStringKernel(object):
         t = trie.Trie(verbose=self.verbose,
                       display_summerized_kgrams=True)
 
-        # copute kernel
+        # compute kernel
         self.kernel_  = t.traverse(data, self.l, self.k, self.m)[0]
 
         # normalize kernel
