@@ -44,9 +44,23 @@ class Trie(object):
 
     """
 
-    def __init__(self, label=None, level=0, parent=None):
+    def __init__(self, label=None, parent=None, verbose=1,
+                 display_summerized_kgrams=False):
+        """
+        label: int, optional (default None)
+            node label
+        parent: `Trie` instance, optional (default None)
+            node's parent
+        verbose: int, optional (default 1)
+            controls amount of verbosity (0 for no verbosity)
+        display_summerize_kgrams: boolean, optional (default False)
+            only display summerized version of kgrams
+        """
+
         self.label = label
-        self.level = level
+        self.level = 0
+        self.verbose = verbose
+        self.display_summerized_kgrams = display_summerized_kgrams
         self.full_label = ""
         self.children = {}
         self.kgrams = {}
@@ -71,6 +85,14 @@ class Trie(object):
 
         return len(self.children) == 0
 
+    def is_empty(self):
+        """
+        checks whether a node has 'died'.
+
+        """
+
+        return len(self.kgrams) == 0
+
     def copy_kgrams(self):
         """
         Copies the kgram data for this node (not the reference pointer,
@@ -86,6 +108,8 @@ class Trie(object):
         Adds a new child to this node.
 
         """
+
+        assert not child.label in self.children
 
         # initialize ngram data to that of parent
         child.kgrams = self.copy_kgrams()
@@ -104,12 +128,34 @@ class Trie(object):
         # let child adopt parent
         child.parent = self
 
+    def delete_child(self, child):
+        """
+        Deletes a child.
+
+        """
+
+        # get child label
+        label = child.label if isinstance(child, Trie) else child
+
+        # check that child really exists
+        assert label in self.children, "No child with label %s exists." % label
+
+        # delete the child
+        del self.children[label]
+
     def compute_kgrams(self, training_data, k):
         """
         Computes the meta-data for this node: i.e, for each input string
         training_data[index], computes the list of offsets of it's k-grams
         together with the mismatch counts (intialially zero) for this
         k-grams with the k-mer represented by this node `self`.
+
+        Parameters
+        ----------
+        training_data: 2D array of shape (n_samples, n_features)
+            training data for the kernel
+        k: int:
+            we will use k-mers for computing the kernel
 
         """
 
@@ -132,7 +178,25 @@ class Trie(object):
 
     def process_node(self, training_data, k, m):
         """
-        Processes this node.
+        Processes this node, re-computing its supported k-grams. Finally,
+        determines if node survives or not.
+
+        Parameters
+        ----------
+        training_data: 2D array of shape (n_samples, n_features)
+            training data for the kernel
+        k: int:
+            we will use k-mers for computing the kernel
+        m: int
+           maximum number of mismatches for 2 k-grams/-mers to be considered
+           'similar'. Normally small values of m should work well, plus the
+           complexity the algorithm is exponential in m.
+           For example, if 'ELVIS' and '3LVIS' are dissimilar
+           if m = 0, but similary if m = 1.
+
+        Returns
+        -------
+        True if node survives, False else
 
         """
 
@@ -163,9 +227,23 @@ class Trie(object):
             self.kgrams = {index: chunks for (
                     index, chunks) in self.kgrams.iteritems() if len(chunks)}
 
-        return len(self.kgrams)
+        return not self.is_empty()
 
     def update_kernel(self, kernel, m, weighting=True):
+        """
+        Updates the kernel in-memory.
+
+        Parameters
+        ----------
+        kernel: 2D array of shape (n_samples, n_samples)
+            kernel to be updated
+        m: int
+            the m in '(k, m)-mismatch kernel' terminology
+        weighting: boolean, optional (default True)
+            if set, the kernel will be weighted (exponential damping)
+
+        """
+
         for i in self.kgrams:
             for j in self.kgrams:
                 if weighting:
@@ -175,57 +253,122 @@ class Trie(object):
                     kernel[i, j] += len(self.kgrams[i]) * len(self.kgrams[j])
 
     def __str__(self):
-        return self.full_label + str(dict(
-                (k, v.tolist()) for k, v in self.kgrams.iteritems()))
+        if self.is_empty():
+            kgrams_str = '{DEAD END}'
+        elif self.display_summerized_kgrams:
+            kgrams_str = '{%i}' % len(self.kgrams)
+        else:
+            kgrams_str = str(dict((k, v.tolist())
+                                  for k, v in self.kgrams.iteritems()))
+
+        return self.full_label + kgrams_str
+
+    def log(self, msg):
+        """
+        Logs a msg (according to verbosity level).
+
+        """
+
+        if self.verbose:
+            print msg
 
     def traverse(self, training_data, l, k, m, kernel=None, indentation=""):
+        """
+        Traverses a node, expanding it to plausible descendants.
+
+        Parameters
+        ----------
+        training_data: 2D array of shape (n_samples, n_features)
+            training data for the kernel
+        l: int
+            size of alphabet. Example of values with a natural interpretation:
+            2: for binary data
+            256 for data encoded as strings of bytes
+            20: for protein data (bioinformatics)
+        k: int:
+            we will use k-mers for computing the kernel
+        m: int
+           maximum number of mismatches for 2 k-grams/-mers to be considered
+           'similar'. Normally small values of m should work well, plus the
+           complexity the algorithm is exponential in m.
+           For example, if 'ELVIS' and '3LVIS' are dissimilar
+           if m = 0, but similary if m = 1.
+        kernel: 2D array of shape (n_samples, n_samples), optional (
+        default None)
+            kernel to be, or being, estimated
+        indentation: string, optional (default "")
+            controls indentation controlling pretty-printing
+
+        Returns
+        -------
+        kernel: 2D array of shape (n_samples, n_samples)
+            estimated kernel
+        n_survived_kmers: int
+            number of leaf nodes that survived the traversal
+        go_ahead: boolean
+            a flag indicating whether the node got abotted (False) or not
+
+        """
+
         # initialize kernel if None
         if kernel is None:
             kernel = np.zeros((len(training_data), len(training_data)))
 
         # counts the number of leafs which are decendants of this node
-        nkmers = 0
+        n_surviving_kmers = 0
 
         # process the node
         go_ahead = self.process_node(training_data, k, m)
 
         # display the node
         if self.is_root():
-            print "//\r\n \\"
+            self.log("//\r\n \\")
         else:
-            print indentation[:-1] + "+-" + str(self)
-
-        indentation += " "
+            self.log(indentation[:-1] + "+-" + str(self))
 
         # is node dead ?
         if go_ahead:
             # we've hit a leaf
             if k == 0:
                 # yes, this is one more leaf/kmer
-                nkmers += 1
+                n_surviving_kmers += 1
 
                 # update the kernel
                 self.update_kernel(kernel, m)
             else:
                 # recursively bear and traverse child nodes
+                indentation += " "
                 for j in xrange(l):
                     # indentation for child display
-                    print indentation + "|"
+                    self.log(indentation + "|")
                     child_indentation = indentation + (" " if (
                         j + 1) == l else "|")
 
                     # bear child
-                    Trie(label=j, parent=self)
+                    dskg = self.display_summerized_kgrams
+                    child = Trie(label=j, parent=self, verbose=self.verbose,
+                                 display_summerized_kgrams=dskg)
 
                     # traverse child
-                    kernel, child_nkmers, child_go_ahead = self.children[
-                        j].traverse(training_data, l, k - 1, m, kernel=kernel,
+                    kernel, child_n_surviving_kmers, \
+                        child_go_ahead = child.traverse(
+                        training_data, l, k - 1, m, kernel=kernel,
                         indentation=child_indentation
                         )
 
-                    nkmers += child_nkmers if child_go_ahead else 0
+                    # delete child if dead
+                    if child.is_empty():
+                        self.delete_child(child)
 
-        return kernel, nkmers, go_ahead
+                    # update leaf counts
+                    n_surviving_kmers += child_n_surviving_kmers if \
+                        child_go_ahead else 0
+
+        if self.is_root():
+            self.log("%i out of %i k-mers survived.\r\n" % (
+                    n_surviving_kmers, l ** k))
+
+        return kernel, n_surviving_kmers, go_ahead
 
 
 def test_trie_constructor():
@@ -286,13 +429,29 @@ def test_process_node():
                                      )
 
 
-if __name__ == '__main__':
-    trie = Trie()
+def test_traverse():
+    trie = Trie(verbose=False)
 
     X = np.zeros((90, 18))
     X[:30, :6] = 1
     X[30:60, 6:12] = 1
     X[60:, 12:] = 1
 
-    kernel, _, _ = trie.traverse(X, 2, 4, 0)
-    print normalize_kernel(kernel)
+    _, n_surviving_kmers, _ = trie.traverse(X, 2, 4, 0)
+
+    nose.tools.assert_equal(n_surviving_kmers, 8)
+
+
+# demo
+if __name__ == '__main__':
+    trie = Trie(display_summerized_kgrams=True)
+
+    data = np.zeros((90, 18))
+    data[:30, :6] = 1
+    data[30:60, 6:12] = 1
+    data[60:, 12:] = 1
+
+    kern = trie.traverse(data, 2, 4, 0)[0]
+    normalize_kernel(kern)
+
+    print "Kernel:\r\n%s" % kern

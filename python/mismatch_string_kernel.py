@@ -11,11 +11,11 @@ import trie
 
 class MismatchStringKernel(object):
     """
-    Python implementation of Mismatch String Kernels. See references above.
+    Python implementation of Mismatch String Kernels. See r
 
     """
 
-    def __init__(self, l, k, m):
+    def __init__(self, l, k, m, verbose=1):
         """
         Parameters
         ----------
@@ -32,6 +32,8 @@ class MismatchStringKernel(object):
            complexity the algorithm is exponential in m.
            For example, if 'ELVIS' and '3LVIS' are dissimilar
            if m = 0, but similary if m = 1.
+        verbose: int, optional (default 1)
+            controls amount of verbosity (0 for no verbosity)
 
         """
 
@@ -49,6 +51,7 @@ class MismatchStringKernel(object):
         self.l = l
         self.k = k
         self.m = m
+        self.verbose = verbose
 
     def fit(self, data):
         """
@@ -66,9 +69,14 @@ class MismatchStringKernel(object):
 
         """
 
-        t = trie.Trie()
+        # intantiate Trie object
+        t = trie.Trie(verbose=self.verbose,
+                      display_summerized_kgrams=True)
 
+        # copute kernel
         self.kernel_  = t.traverse(data, self.l, self.k, self.m)[0]
+
+        # normalize kernel
         trie.normalize_kernel(self.kernel_)
 
         return self
