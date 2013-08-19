@@ -33,7 +33,8 @@ def normalize_kernel(kernel):
                     kernel[i, j] /= q
                     kernel[j, i] = kernel[i, j]
 
-        np.fill_diagonal(kernel, 1.)
+    # finally, set diagonal elements to 1
+    np.fill_diagonal(kernel, 1.)
 
     return kernel
 
