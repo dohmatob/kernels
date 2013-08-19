@@ -1,5 +1,5 @@
 Kernels is a (spike) project on kernel methods (spectral string kernels, string mismatch kernels). It contains 2 versions: C++
-and Pythonic. The C++ version is broken!
+and Pythonic. The C++ version is broken (see issue #2)!
 
 Dependencies (only for C++ version)
 ===================================
