@@ -41,7 +41,8 @@ def normalize_kernel(kernel):
 
 class Trie(object):
     """
-    Trie (short for "Retrieval Tree") implementation.
+    Trie (short for "Retrieval Tree") implementation, specific to
+    'Mismatch String Kernels'.
 
     """
 

@@ -9,13 +9,13 @@
 import trie
 
 
-class MismatchStringKernel(object):
+class MismatchStringKernel(trie.Trie):
     """
     Python implementation of Mismatch String Kernels. See reference above.
 
     """
 
-    def __init__(self, l, k, m, verbose=1):
+    def __init__(self, l, k, m, **kwargs):
         """
         Parameters
         ----------
@@ -25,17 +25,31 @@ class MismatchStringKernel(object):
             256 for data encoded as strings of bytes
             20: for protein data (bioinformatics)
         k: int
-           the k in 'k-mer' and 'k-gram'.
+            the k in 'k-mer' and 'k-gram'.
         m: int
-           maximum number of mismatches for 2 k-grams/-mers to be considered
-           'similar'. Normally small values of m should work well, plus the
-           complexity the algorithm is exponential in m.
-           For example, if 'ELVIS' and '3LVIS' are dissimilar
-           if m = 0, but similary if m = 1.
-        verbose: int, optional (default 1)
-            controls amount of verbosity (0 for no verbosity)
+            maximum number of mismatches for 2 k-grams/-mers to be considered
+            'similar'. Normally small values of m should work well, plus the
+            complexity the algorithm is exponential in m.
+            For example, if 'ELVIS' and '3LVIS' are dissimilar
+            if m = 0, but similary if m = 1.
+        **kwargs: dict, optional (default empy)
+            optional parameters to pass to `tree.Trie` instantiation
+
+        Attributes
+        ----------
+        `kernel_`: 2D array of shape (n_sampled, n_samples)
+            estimated kernel
+        `n_survived_kmers`:
+            number of leafs/k-mers that survived trie traversal
 
         """
+
+        # don't be too chatty
+        if not "display_summerized_kgrams" in kwargs:
+            kwargs["display_summerized_kgrams"] = True
+
+        # invoke trie.Trie constructor
+        trie.Trie.__init__(self, **kwargs)
 
         # sanitize alphabet size
         if l < 2:
@@ -51,15 +65,14 @@ class MismatchStringKernel(object):
         self.l = l
         self.k = k
         self.m = m
-        self.verbose = verbose
 
-    def fit(self, data):
+    def fit(self, X):
         """
         Fit Mismatch String Kernel on data.
 
         Parameters
         ----------
-        data: 2D array of shape (n_samples, n_features)
+        X: 2D array of shape (n_samples, n_features)
             training data for the kernel
 
         Returns
@@ -69,12 +82,9 @@ class MismatchStringKernel(object):
 
         """
 
-        # intantiate Trie object
-        t = trie.Trie(verbose=self.verbose,
-                      display_summerized_kgrams=True)
-
         # compute kernel
-        self.kernel_  = t.traverse(data, self.l, self.k, self.m)[0]
+        self.kernel_, self.n_survived_kmers_, _ = self.traverse(
+            X, self.l, self.k, self.m)
 
         # normalize kernel
         trie.normalize_kernel(self.kernel_)
