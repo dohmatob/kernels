@@ -293,7 +293,13 @@ void Combinatorics::update_kernel(Combinatorics::Trie& trie,
 	  j_it != trie->metadata.end(); j_it++)
 	{
 	  // increment kernel[i, j] by z(n_i, n_j) := exp(-(n_i + n_j)), where n_i
-	  // (resp. n_j) is the cardinality of s_i (resp. s_j)
+	  // (resp. n_j) is the cardinality of s_i (resp. s_j). the reason for this
+	  // damping factory is that, if n_i + n_j is "large", WLOG, n_i is "large"
+	  // and so th k-mer represented by this current leaf is rather popular
+	  // in the ith input string; thus we should prevent this popularity from
+	  // faking the similarity between this input string and others (such faking
+	  // would happend if we updated the kernel value with somethig proportional
+	  // to n_i, say n_i * n_j)
 	  kernel(i_it->first, j_it->first) += std::exp(-(double)(i_it->second.size() + \
 								 j_it->second.size()));
 	}
