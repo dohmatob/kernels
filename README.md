@@ -1,23 +1,23 @@
-Kernels is a (spike) project on kernel methods (spectral string kernels, string mismatch kernels). It's implemented in
-C++. Python bindings exist (these have remained unmaintained for quite a while though)
+Kernels is a (spike) project on kernel methods (spectral string kernels, string mismatch kernels). It contains 2 versions: C++
+and Pythonic. The C++ version is broken!
 
-Dependencies
-============
+Dependencies (only for C++ version)
+===================================
 * cmake
 * doxygen
 * boost
 
 
-Build
-=====
+Build (only C++ version)
+===================
           cmake . && make all
           
 Example
 =======
-          ./bin/main 6 1 16 data/digits_data.dat data/digits_kernel.dat
+          python python/trie.py
 
 Testing
 =======
-          ./bin/test
+          nosetests -v python/trie.py
 
 (c) DOHMATOB Elvis DOpgima
