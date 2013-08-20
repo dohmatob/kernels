@@ -26,9 +26,9 @@ int main(int argc, char *argv[])
       return 1;
     }
 
-  int l = atoi(argv[3]);  // size of alphabet
-  int k = atoi(argv[1]); // depth of leafs
-  int m = atoi(argv[2]);  // max number of allowable mismatches for 'similar' tokens
+  int l = atoi(argv[1]);  // size of alphabet
+  int k = atoi(argv[2]); // depth of leafs
+  int m = atoi(argv[3]);  // max number of allowable mismatches for 'similar' tokens
 
   // instantiate trie object
   Trie trie = create_trienode();

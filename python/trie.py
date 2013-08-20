@@ -454,14 +454,51 @@ def test_traverse():
 
 # demo
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
+    #####################
+    # data preperation
+    #####################
+
+    # prepare train data
+    data = np.zeros((200, 18))
+    data[:30, :8] = 1
+    data[30:60, 6:14] = 1
+    data[60:, 10:] = 1
+
+    # add Bernoullian noise
+    data[np.random.rand() > .8] = 1
+
+    # instantiate MisMatchTrie object (for learning)
     trie = MismatchTrie(display_summerized_kgrams=True)
 
-    data = np.zeros((90, 18))
-    data[:30, :6] = 1
-    data[30:60, 6:12] = 1
-    data[60:, 12:] = 1
+    ####################
+    # kernel business
+    ####################
 
+    # compute kernel
     kern = trie.traverse(data, 2, 4, 0)[0]
     normalize_kernel(kern)
 
-    print "Kernel:\r\n%s" % kern
+    #############################
+    # visualization of results
+    #############################
+
+    plt.gray()
+
+    # plot train data as image
+    plt.imshow(data)
+    plt.title("train data")
+
+    # plot covariance matrix of train data as image
+    plt.figure()
+    plt.imshow(np.dot(data, data.T))
+    plt.title("Covariance matrix of train data")
+
+    # plot kernel
+    plt.figure()
+    plt.imshow(kern)
+    plt.title("Mismatch String Kernel learnt on train data")
+
+    # render graphics
+    plt.show()
