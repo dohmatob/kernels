@@ -26,9 +26,9 @@ int main(int argc, char *argv[])
       return 1;
     }
 
-  int k = atoi(argv[1]);
+  int l = atoi(argv[3]);  // size of alphabet
+  int k = atoi(argv[1]); // depth of leafs
   int m = atoi(argv[2]);  // max number of allowable mismatches for 'similar' tokens
-  int d = atoi(argv[3]);  // size of alphabet
 
   // instantiate trie object
   Trie trie = create_trienode();
@@ -36,18 +36,14 @@ int main(int argc, char *argv[])
   // load data
   TrainingDataset training_dataset;
   training_dataset = load_training_dataset(argv[4]);
-  training_dataset = TrainingDataset(training_dataset.begin(),
-				     training_dataset.begin() + training_dataset.size());
 
   // initialize kernel to zero
-  ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size(), 
-							      training_dataset.size());
+  ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size1(), 
+							      training_dataset.size1());
 				     
   // estimate kernel (fit)
-  printf("k = %i, m = %i, d = %i\r\n\r\n", k, m, d);
-  int nkmers = expand(trie, k, d, m, training_dataset, kernel);
-  std::cout << nkmers << " " << k << "-mers out of " << std::pow(d, k) << " survived." 
-	    << std::endl;
+  printf("l = %i, k = %i, m = %i\r\n\r\n", l, k, m);
+  int nkmers = traverse(trie, l, k, m, training_dataset, kernel);
   
   // normalize kernel to remove the 'bias of length'
   Combinatorics::normalize_kernel(kernel);

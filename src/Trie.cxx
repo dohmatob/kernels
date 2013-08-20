@@ -1,5 +1,5 @@
 /*!
-  \file Trie.cxx
+  \file TRie.Cxx
   \author DOHMATOB Elvis Dopgima
   \brief Implementation of Trie.h header file.
 */
@@ -16,23 +16,39 @@
 using namespace boost::assign;
 
 
-Combinatorics::Chunk Combinatorics::create_chunk(int offset, 
-						 int length, 
+Combinatorics::Kgram Combinatorics::create_kgram(int offset, 
 						 int mismatches)
 {
-  Combinatorics::Chunk *chunk = new Chunk;
-  chunk->offset = offset;
-  chunk->length = length;
-  chunk->mismatches = mismatches;
+  Combinatorics::Kgram *kgram = new Kgram;
+  kgram->offset = offset;
+  kgram->mismatches = mismatches;
 
-  return *chunk;
+  return *kgram;
 }
   
 
 void Combinatorics::add_child(Combinatorics::Trie& parent, 
 			      Trie& child)
 {
+  // clone parent's data
+  child->metadata = Combinatorics::TrieMetadata(parent->metadata);
+
+  // child is one level beyond parent
+  child->level = parent->level + 1;
+
+  // parent's full label (concatenation of labels on edges leading
+  // from root node) is a prefix to child's the remainder is one
+  // symbol, the child's label
+  child->rootpath << parent->rootpath.str();
+  child->rootpath << "[";
+  child->rootpath << child->label;
+  child->rootpath << "]";
+
+  // let parent adopt child
   parent->children[child->label] = child;
+
+  // let child adopt parent
+  child->parent = parent;
 } 
 
 
@@ -40,7 +56,10 @@ Combinatorics::Trie Combinatorics::create_trienode(int label)
 {
   Combinatorics::Trie trie = new Combinatorics::TrieNode;
   trie->label = label;
+  trie->level = 0;
   trie->parent = 0;
+
+  return trie;
 }
 
 
@@ -56,13 +75,13 @@ Combinatorics::Trie Combinatorics::create_trienode(int label,
   Combinatorics::Trie trie = new Combinatorics::TrieNode;
   trie->label = label;
   trie->parent = parent;
-  trie->metadata = parent->metadata;
-  trie->rootpath << parent->rootpath.str();
-  trie->rootpath << "[";
-  trie->rootpath << label;
-  trie->rootpath << "]";
 
-  add_child(parent, trie);
+  if(parent)
+    {
+      add_child(parent, trie);
+    }
+
+  return trie;
 } 
 
 
@@ -94,75 +113,43 @@ void Combinatorics::destroy_trie(Combinatorics::Trie& trie)
     }
 }
 
-// int Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& indentation)
-// {
-//   int nodecount = 0;
-
-//   if(trie)
-//     {
-//       Combinatorics::display_trienode(trie, trie->children.size(), indentation);
-      
-//       nodecount++;
-//       indentation += " ";
-  
-//       int count = 0;
-//       for(Combinatorics::TrieNodeChildren::const_iterator children_it = trie->children.begin(); 
-// 	  children_it != trie->children.end(); children_it++) 
-// 	{
-// 	  count++;
-// 	  std::string child_indentation(indentation);
-// 	  child_indentation += (count == trie->children.size()) ? " " : "|";
-// 	  nodecount += display_trie(children_it->second, child_indentation);
-// 	}
-//     }
-
-//   return nodecount;
-// }
-
-// int Combinatorics::display_trie(const Combinatorics::Trie& trie)
-// {
-//   std::string indentation(" ");
-  
-//   return Combinatorics::display_trie(trie, indentation);
-// }
-
   
 void Combinatorics::compute_metadata(Combinatorics::Trie& trie, 
-				     int d, 
+				     int k, 
 				     Combinatorics::TrainingDataset& training_dataset)
 {
-  for(unsigned index = 0; index < training_dataset.size(); index++)
+  BOOST_ASSERT(training_dataset.size2() - k + 1 > 0);
+  for(unsigned index = 0; index < training_dataset.size1(); index++)
     {
-      Chunks chunks;
-      BOOST_ASSERT(training_dataset[index].size() - d + 1 > 0);
-      for(int offset = 0; offset < training_dataset[index].size() - d + 1; offset++)
+      Combinatorics::Kgrams kgrams;
+      for(int offset = 0; offset < training_dataset.size2() - k + 1; offset++)
 	{
-	  chunks.push_back(create_chunk(offset, 0, 0));
+	  kgrams.push_back(create_kgram(offset, 0));
 	}
-      trie->metadata[index] = chunks;
+      trie->metadata[index] = kgrams;
     }
 }
 
 
 std::ostream& Combinatorics::operator<<(std::ostream& cout, 
-					const Combinatorics::Chunk& chunk)
+					const Combinatorics::Kgram& kgram)
 {
-  cout << "(" << chunk.offset << "," << chunk.length << "," << chunk.mismatches << ")";
+  cout << "(" << kgram.offset << "," << kgram.mismatches << ")";
 
   return cout;
 }
 
 
 std::ostream& Combinatorics::operator<<(std::ostream& cout, 
-					const Combinatorics::Chunks& chunks)
+					const Combinatorics::Kgrams& kgrams)
 {
-  Combinatorics::Chunks::const_iterator chunks_it = chunks.begin();
-  cout << "[" << chunks.size() << "](" << (chunks_it == chunks.end() ? ")" : "");
-  while(chunks_it != chunks.end())
+  Combinatorics::Kgrams::const_iterator kgrams_it = kgrams.begin();
+  cout << "[" << kgrams.size() << "](" << (kgrams_it == kgrams.end() ? ")" : "");
+  while(kgrams_it != kgrams.end())
     {
-      cout << *chunks_it;
-      chunks_it++;
-      cout << (chunks_it == chunks.end() ? ")" : ",");
+      cout << *kgrams_it;
+      kgrams_it++;
+      cout << (kgrams_it == kgrams.end() ? ")" : ",");
     }
   
   return cout;
@@ -172,61 +159,67 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
 std::ostream& Combinatorics::operator<<(std::ostream& cout, 
 					const Combinatorics::TrieMetadata& metadata)
 {
-  Combinatorics::TrieMetadata::const_iterator metadata_it = metadata.begin();
-  cout << "{" << (metadata_it == metadata.end() ? "}" : "");
-  while(metadata_it != metadata.end())
+  if(metadata.empty())
     {
-      cout << metadata_it->first << ":" << metadata_it->second;
-      metadata_it++;
-      cout << (metadata_it == metadata.end() ? "}" : ",");
+      cout << "{DEADEND}";
+    }
+  else
+    {
+      cout << "{" << metadata.size() << "}";
+      // Combinatorics::TrieMetadata::const_iterator metadata_it = metadata.begin();
+      // cout << "{" << (metadata_it == metadata.end() ? "}" : "");
+      // while(metadata_it != metadata.end())
+      // 	{
+      // 	  cout << metadata_it->first << ":" << metadata_it->second;
+      // 	  metadata_it++;
+      // 	cout << (metadata_it == metadata.end() ? "}" : ",");
+      // 	}
     }
 
   return cout;
 }
   
 
-void Combinatorics::trim_bad_chunks(Combinatorics::Trie& trie, 
+void Combinatorics::trim_bad_kgrams(Combinatorics::Trie& trie, 
 				    int index, 
 				    int m, 
 				    Combinatorics::TrainingDataset& training_dataset)
 {
-  Combinatorics::Chunks chunks = trie->metadata[index];
-  Combinatorics::Chunks::iterator chunks_it = chunks.begin();
-  while(chunks_it != chunks.end())
+  Combinatorics::Kgrams kgrams = trie->metadata[index];
+  Combinatorics::Kgrams::iterator kgrams_it = kgrams.begin();
+  while(kgrams_it != kgrams.end())
     {
-      // update mismatch count for chunk
-      chunks_it->mismatches += training_dataset[index][chunks_it->offset + 
-						       chunks_it->length] != trie->label ? 1 : 0;
+      // update mismatch count for kgram
+      kgrams_it->mismatches += training_dataset(index,
+						kgrams_it->offset + trie->level - 1
+						) != trie->label ? 1 : 0;
 
-      // update chunk length
-      chunks_it->length++;
-      
-      // delete this chunk if we have hit more than m mismatches with it
-      if(chunks_it->mismatches > m)
+      // delete this kgram if we have hit more than m mismatches with it
+      if(kgrams_it->mismatches > m)
 	{
-	  chunks_it = chunks.erase(chunks_it);
+	  kgrams_it = kgrams.erase(kgrams_it);
 	  continue;
 	}
       
-      // proceed to next chunk
-      chunks_it++;
+      // proceed to next kgram
+      kgrams_it++;
     }
 
   // update metadata entry
-  trie->metadata[index] = chunks;
+  trie->metadata[index] = kgrams;
 }
 
   
-bool Combinatorics::inspect(Combinatorics::Trie& trie, 
-			    int d, 
-			    int m, 
-			    Combinatorics::TrainingDataset& training_dataset)
+bool Combinatorics::process_node(Combinatorics::Trie& trie, 
+				 int k, 
+				 int m, 
+				 Combinatorics::TrainingDataset& training_dataset)
 {
   if(is_root(trie))
     {
       // create meta data for root node (this will be copied to children
       // nodes as they're created along)
-      Combinatorics::compute_metadata(trie, d, training_dataset);
+      Combinatorics::compute_metadata(trie, k, training_dataset);
     }	  
   else
     {
@@ -236,13 +229,13 @@ bool Combinatorics::inspect(Combinatorics::Trie& trie,
 	{
 	  int index = metadata_it->first;
 
-	  // trim-off all chunks that have exceeded the mismatch threshold (m)
-	  Combinatorics::trim_bad_chunks(trie, index, m, training_dataset);
+	  // trim-off all kgrams that have exceeded the mismatch threshold (m)
+	  Combinatorics::trim_bad_kgrams(trie, index, m, training_dataset);
 
-	  Combinatorics::Chunks chunks = metadata_it->second;
-	  if(chunks.empty())
+	  Combinatorics::Kgrams kgrams = metadata_it->second;
+	  if(kgrams.empty())
 	    {
-	      // no need keeping empty chunks
+	      // no need keeping empty kgrams
 	      trie->metadata.erase(index);
 	    }
 	  
@@ -320,36 +313,18 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
 }
 
 
-// void Combinatorics::display_trienode(const Combinatorics::Trie& trie, 
-// 				     int d, 
-// 				     const std::string& indentation)
-// {
-//   if(trie)
-//     {
-//       if(is_root(trie))
-// 	{
-// 	  std::cout << "//\r\n" << (d > 0 ? " \\" : "") << std::endl;
-// 	}
-//       else
-// 	{
-// 	  std::cout << indentation.substr(0, indentation.length() - 1) + "+-" << trie << std::endl;
-// 	}
-//     }
-// }
-  
-
-int Combinatorics::expand(Combinatorics::Trie& trie, 
-			  int k, 
-			  int d, 
-			  int m, 
-			  Combinatorics::TrainingDataset& training_dataset,
-			  ublas::matrix<double >& kernel, 
-			  std::string& indentation)
+int Combinatorics::traverse(Combinatorics::Trie& trie, 
+			    int l, 
+			    int k, 
+			    int m, 
+			    Combinatorics::TrainingDataset& training_dataset,
+			    ublas::matrix<double >& kernel, 
+			    std::string& indentation)
 {
   int nkmers = 0;
 
   // recompute metadata of node, and determine it survives
-  bool go_ahead = inspect(trie, d, m, training_dataset);
+  bool go_ahead = process_node(trie, k, m, training_dataset);
 
   // display this node
   if(is_root(trie))
@@ -360,8 +335,6 @@ int Combinatorics::expand(Combinatorics::Trie& trie,
     {
       std::cout << indentation.substr(0, indentation.length() - 1) + "+-" << trie << std::endl;
   }
-
-  indentation += " ";
 
   // explore node further
   if(go_ahead)
@@ -376,18 +349,19 @@ int Combinatorics::expand(Combinatorics::Trie& trie,
 	}
       else
 	{
+	  indentation += " ";
 	  // recursively expand all children nodes
-	  for(int j = 0; j < d; j++)
+	  for(int j = 0; j < l; j++)
 	    {
 	      // compute indentation for child display
 	      std::cout << indentation + "|" << std::endl;
 	      std::string child_indentation(indentation);
-	      child_indentation += (j + 1 == d) ? " " : "|";
+	      child_indentation += (j + 1 == l) ? " " : "|";
 
 	      // bear new child with label j and expand it
 	      create_trienode(j, trie);
-	      nkmers += expand(trie->children[j], k - 1, d, m, training_dataset,
-			       kernel, child_indentation);
+	      nkmers += traverse(trie->children[j], l, k - 1, m, training_dataset,
+				 kernel, child_indentation);
 	    }
 	}
     }
@@ -397,37 +371,44 @@ int Combinatorics::expand(Combinatorics::Trie& trie,
       Combinatorics::destroy_trie(trie);
     }
 
+  if(is_root(trie))
+    {
+      std::cout << nkmers << " " << k << "-mers out of " << std::pow(l, k) << " survived." 
+		<< std::endl;
+    }
+
   // return number of surviving leafs (k-mers)
   return nkmers;
 }
 
 
-int Combinatorics::expand(Combinatorics::Trie& trie, 
-			  int k, 
-			  int d, 
-			  int m, 
-			  Combinatorics::TrainingDataset& training_dataset,
-			  ublas::matrix<double >& kernel)
+int Combinatorics::traverse(Combinatorics::Trie& trie, 
+			    int l, 
+			    int k, 
+			    int m, 
+			    Combinatorics::TrainingDataset& training_dataset,
+			    ublas::matrix<double >& kernel)
 {
   // intantiate indentation
   std::string indentation(" ");
 
   // delegate to other version
-  return expand(trie, k, d, m, training_dataset, kernel, indentation);
+  return traverse(trie, l, k, m, training_dataset, kernel, indentation);
 }
    
 
-Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::string& filename)
+Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::string& filename,
+								    unsigned int nrows)
 {
   // XXX check that filename exists
 
   std::vector<std::vector<int> > training_dataset;
   std::ifstream input(filename.c_str());
   std::string lineData;
-  int n = 0;
-  int m;
+  unsigned int n = 0;
+  unsigned int m;
 
-  while(std::getline(input, lineData))
+  while(n != nrows && std::getline(input, lineData))
     {
       int d;
       std::vector<int > row;
@@ -454,14 +435,26 @@ Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::s
           n++;
         }
     }
-  
-  return training_dataset;
+
+  // convert list of lists into matrix
+  // XXX it should be possible to do this with a one-liner
+  Combinatorics::TrainingDataset X(n, m);
+  for(unsigned int i = 0; i < n; i++)
+    {
+      for(unsigned int j = 0; j < m; j++)
+	{
+	  X(i, j) = training_dataset[i][j];
+	}
+    }
+
+  return X;
 }
 
 
-
-
-
+Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::string& filename)
+{
+  return load_training_dataset(filename, -1);
+}
 
 
 
