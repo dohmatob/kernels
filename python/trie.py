@@ -39,7 +39,7 @@ def normalize_kernel(kernel):
     return kernel
 
 
-class Trie(object):
+class MismatchTrie(object):
     """
     Trie (short for "Retrieval Tree") implementation, specific to
     'Mismatch String Kernels'.
@@ -59,13 +59,18 @@ class Trie(object):
             only display summerized version of kgrams
         """
 
-        self.label = label
-        self.level = 0
+        self.label = label  # label on edge connecting this node to its parent
+        self.level = 0  # level of this node beyond the root node
         self.verbose = verbose
         self.display_summerized_kgrams = display_summerized_kgrams
+        self.children = {}  # children of this node
+
+        # concatenation of all labels of nodes from root node to this node
         self.full_label = ""
-        self.children = {}
+        # for each sample string, this dict holds pointers to it's k-mer/k-gram
+        # substrings
         self.kgrams = {}
+
         self.parent = parent
 
         if not parent is None:
@@ -102,8 +107,8 @@ class Trie(object):
 
         """
 
-        return {index: np.array(chunks)
-                for index, chunks in self.kgrams.iteritems()}
+        return {index: np.array(substring_pointers)
+                for index, substring_pointers in self.kgrams.iteritems()}
 
     def add_child(self, child):
         """
@@ -137,13 +142,33 @@ class Trie(object):
         """
 
         # get child label
-        label = child.label if isinstance(child, Trie) else child
+        label = child.label if isinstance(child, MismatchTrie) else child
 
         # check that child really exists
         assert label in self.children, "No child with label %s exists." % label
 
         # delete the child
         del self.children[label]
+
+    def __str__(self):
+        if self.is_empty():
+            kgrams_str = '{DEADEND}'
+        elif self.display_summerized_kgrams:
+            kgrams_str = '{%i}' % len(self.kgrams)
+        else:
+            kgrams_str = str(dict((k, v.tolist())
+                                  for k, v in self.kgrams.iteritems()))
+
+        return self.full_label + kgrams_str
+
+    def log(self, msg):
+        """
+        Logs a msg (according to verbosity level).
+
+        """
+
+        if self.verbose:
+            print msg
 
     def compute_kgrams(self, training_data, k):
         """
@@ -215,19 +240,22 @@ class Trie(object):
             self.compute_kgrams(training_data, k)
         else:
             # loop on all k-kgrams of input string training_data[index]
-            for index, chunks in self.kgrams.iteritems():
+            for index, substring_pointers in self.kgrams.iteritems():
                 # update mismatch counts
-                chunks[..., 1] += (training_data[index][
-                        chunks[..., 0] + self.level - 1] != self.label)
+                substring_pointers[..., 1] += (training_data[index][
+                        substring_pointers[..., 0] + self.level - 1
+                        ] != self.label)
 
-                # delete chunks that present more than m mismatches
-                self.kgrams[index] = np.delete(chunks,
-                                                np.nonzero(chunks[..., 1] > m),
-                                                axis=0)
+                # delete substring_pointers that present more than m mismatches
+                self.kgrams[index] = np.delete(substring_pointers,
+                                               np.nonzero(
+                        substring_pointers[..., 1] > m),
+                                               axis=0)
 
-            # delete entries with empty chunk list
-            self.kgrams = {index: chunks for (
-                    index, chunks) in self.kgrams.iteritems() if len(chunks)}
+            # delete entries with empty substring_pointer list
+            self.kgrams = {index: substring_pointers for (
+                    index, substring_pointers) in self.kgrams.iteritems(
+                    ) if len(substring_pointers)}
 
         return not self.is_empty()
 
@@ -253,26 +281,6 @@ class Trie(object):
                                                  ) + len(self.kgrams[j])))
                 else:
                     kernel[i, j] += len(self.kgrams[i]) * len(self.kgrams[j])
-
-    def __str__(self):
-        if self.is_empty():
-            kgrams_str = '{DEAD END}'
-        elif self.display_summerized_kgrams:
-            kgrams_str = '{%i}' % len(self.kgrams)
-        else:
-            kgrams_str = str(dict((k, v.tolist())
-                                  for k, v in self.kgrams.iteritems()))
-
-        return self.full_label + kgrams_str
-
-    def log(self, msg):
-        """
-        Logs a msg (according to verbosity level).
-
-        """
-
-        if self.verbose:
-            print msg
 
     def traverse(self, training_data, l, k, m, kernel=None, indentation=""):
         """
@@ -348,8 +356,9 @@ class Trie(object):
 
                     # bear child
                     dskg = self.display_summerized_kgrams
-                    child = Trie(label=j, parent=self, verbose=self.verbose,
-                                 display_summerized_kgrams=dskg)
+                    child = MismatchTrie(label=j, parent=self,
+                                         verbose=self.verbose,
+                                         display_summerized_kgrams=dskg)
 
                     # traverse child
                     kernel, child_n_surviving_kmers, \
@@ -374,12 +383,12 @@ class Trie(object):
 
 
 def test_trie_constructor():
-    t = Trie()
+    t = MismatchTrie()
     nose.tools.assert_true(t.is_root())
     nose.tools.assert_true(t.is_leaf())
     nose.tools.assert_equal(t.label, None)
 
-    c = Trie(2, parent=t)
+    c = MismatchTrie(2, parent=t)
     nose.tools.assert_false(c.is_root())
     nose.tools.assert_true(c.is_leaf())
     nose.tools.assert_false(t.is_leaf())
@@ -387,7 +396,7 @@ def test_trie_constructor():
 
 
 def test_compute_kgrams():
-    t = Trie()
+    t = MismatchTrie()
     x = [0, 1, 0, 0, 1]
     t.compute_kgrams(x, 1)
     numpy.testing.assert_array_equal(t.kgrams[0], [[0, 0],
@@ -400,7 +409,7 @@ def test_compute_kgrams():
 
 
 def test_process_node():
-    t = Trie()
+    t = MismatchTrie()
     x = [0, 1, 0, 0, 1]
 
     # root node
@@ -414,7 +423,7 @@ def test_process_node():
                                      )
 
     # left child
-    c = Trie(label=0, parent=t)
+    c = MismatchTrie(label=0, parent=t)
     c.process_node(x, 1, 0)
     numpy.testing.assert_array_equal(c.kgrams[0], [[0, 0],
                                                    [2, 0],
@@ -423,7 +432,7 @@ def test_process_node():
                                      )
 
     # right child
-    c = Trie(label=1, parent=t)
+    c = MismatchTrie(label=1, parent=t)
     c.process_node(x, 1, 0)
     numpy.testing.assert_array_equal(c.kgrams[0], [[1, 0],
                                                    [4, 0],
@@ -432,7 +441,7 @@ def test_process_node():
 
 
 def test_traverse():
-    trie = Trie(verbose=False)
+    trie = MismatchTrie(verbose=False)
 
     X = np.zeros((90, 18))
     X[:30, :6] = 1
@@ -443,10 +452,9 @@ def test_traverse():
 
     nose.tools.assert_equal(n_surviving_kmers, 8)
 
-
 # demo
 if __name__ == '__main__':
-    trie = Trie(display_summerized_kgrams=True)
+    trie = MismatchTrie(display_summerized_kgrams=True)
 
     data = np.zeros((90, 18))
     data[:30, :6] = 1

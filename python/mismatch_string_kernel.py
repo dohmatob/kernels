@@ -9,7 +9,7 @@
 import trie
 
 
-class MismatchStringKernel(trie.Trie):
+class MismatchStringKernel(trie.MismatchTrie):
     """
     Python implementation of Mismatch String Kernels. See reference above.
 
@@ -33,7 +33,7 @@ class MismatchStringKernel(trie.Trie):
             For example, if 'ELVIS' and '3LVIS' are dissimilar
             if m = 0, but similary if m = 1.
         **kwargs: dict, optional (default empy)
-            optional parameters to pass to `tree.Trie` instantiation
+            optional parameters to pass to `tree.MismatchTrie` instantiation
 
         Attributes
         ----------
@@ -48,8 +48,8 @@ class MismatchStringKernel(trie.Trie):
         if not "display_summerized_kgrams" in kwargs:
             kwargs["display_summerized_kgrams"] = True
 
-        # invoke trie.Trie constructor
-        trie.Trie.__init__(self, **kwargs)
+        # invoke trie.MismatchTrie constructor
+        trie.MismatchTrie.__init__(self, **kwargs)
 
         # sanitize alphabet size
         if l < 2:
