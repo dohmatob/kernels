@@ -25,7 +25,7 @@ C++ example
 -----------
 To run the a C++ example, type:
 
-          ./bin/main 1 0 2 data/dummy_data.txt data/dummy_kernel.txt
+          ./bin/main 2 4 0 data/dummy_data.txt data/dummy_kernel.txt
 
 Testing
 =======
