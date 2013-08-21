@@ -20,23 +20,22 @@ def normalize_kernel(kernel):
 
     """
 
-    if not isinstance(kernel, np.ndarray):
-        kernel = np.ndarray(kernel)
+    nkernel = numpy.copy(kernel)
 
-    assert kernel.ndim == 2
+    assert nkernel.ndim == 2
+    assert nkernel.shape[0] == nkernel.shape[1]
 
-    for i in xrange(kernel.shape[0]):
-        for j in xrange(kernel.shape[1]):
-            if i < j:
-                q = np.sqrt(kernel[i, i] * kernel[j, j])
-                if q > 0:
-                    kernel[i, j] /= q
-                    kernel[j, i] = kernel[i, j]
+    for i in xrange(nkernel.shape[0]):
+        for j in xrange(i + 1, nkernel.shape[0]):
+            q = np.sqrt(nkernel[i, i] * nkernel[j, j])
+            if q > 0:
+                nkernel[i, j] /= q
+                nkernel[j, i] = nkernel[i, j]  # symmetry
 
     # finally, set diagonal elements to 1
-    np.fill_diagonal(kernel, 1.)
+    np.fill_diagonal(nkernel, 1.)
 
-    return kernel
+    return nkernel
 
 
 class MismatchTrie(object):
@@ -189,6 +188,7 @@ class MismatchTrie(object):
         # sanity checks
         if not isinstance(training_data, np.ndarray):
             training_data = np.array(training_data)
+
         if training_data.ndim == 1:
             training_data = np.array([training_data])
 
@@ -282,7 +282,8 @@ class MismatchTrie(object):
                 else:
                     kernel[i, j] += len(self.kgrams[i]) * len(self.kgrams[j])
 
-    def traverse(self, training_data, l, k, m, kernel=None, indentation=""):
+    def traverse(self, training_data, l, k, m, kernel=None,
+                 kernel_update_callback=None, indentation=""):
         """
         Traverses a node, expanding it to plausible descendants.
 
@@ -306,6 +307,8 @@ class MismatchTrie(object):
         kernel: 2D array of shape (n_samples, n_samples), optional (
         default None)
             kernel to be, or being, estimated
+        kernel_update_callback: function, optional (default None)
+            a callback function to be invoked after each update of the kernel
         indentation: string, optional (default "")
             controls indentation controlling pretty-printing
 
@@ -345,6 +348,10 @@ class MismatchTrie(object):
 
                 # update the kernel
                 self.update_kernel(kernel, m)
+
+                # callback ?
+                if not kernel_update_callback is None:
+                    kernel_update_callback(kernel)
             else:
                 # recursively bear and traverse child nodes
                 indentation += " "
@@ -364,6 +371,7 @@ class MismatchTrie(object):
                     kernel, child_n_surviving_kmers, \
                         child_go_ahead = child.traverse(
                         training_data, l, k - 1, m, kernel=kernel,
+                        kernel_update_callback=kernel_update_callback,
                         indentation=child_indentation
                         )
 
@@ -478,7 +486,7 @@ if __name__ == '__main__':
 
     # compute kernel
     kern = trie.traverse(data, 2, 4, 0)[0]
-    normalize_kernel(kern)
+    kern = normalize_kernel(kern)
 
     #############################
     # visualization of results
@@ -487,7 +495,7 @@ if __name__ == '__main__':
     plt.gray()
 
     # plot train data as image
-    plt.imshow(data)
+    plt.imshow(data, origin='lower')
     plt.title("train data")
 
     # plot covariance matrix of train data as image

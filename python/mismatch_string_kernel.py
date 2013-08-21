@@ -6,10 +6,10 @@
 
 """
 
-import trie
+from trie import MismatchTrie, normalize_kernel
 
 
-class MismatchStringKernel(trie.MismatchTrie):
+class MismatchStringKernel(MismatchTrie):
     """
     Python implementation of Mismatch String Kernels. See reference above.
 
@@ -49,7 +49,7 @@ class MismatchStringKernel(trie.MismatchTrie):
             kwargs["display_summerized_kgrams"] = True
 
         # invoke trie.MismatchTrie constructor
-        trie.MismatchTrie.__init__(self, **kwargs)
+        MismatchTrie.__init__(self, **kwargs)
 
         # sanitize alphabet size
         if l < 2:
@@ -66,7 +66,7 @@ class MismatchStringKernel(trie.MismatchTrie):
         self.k = k
         self.m = m
 
-    def fit(self, X):
+    def fit(self, X, **kwargs):
         """
         Fit Mismatch String Kernel on data.
 
@@ -84,9 +84,9 @@ class MismatchStringKernel(trie.MismatchTrie):
 
         # compute kernel
         self.kernel_, self.n_survived_kmers_, _ = self.traverse(
-            X, self.l, self.k, self.m)
+            X, self.l, self.k, self.m, **kwargs)
 
         # normalize kernel
-        trie.normalize_kernel(self.kernel_)
+        self.kernel_ = normalize_kernel(self.kernel_)
 
         return self

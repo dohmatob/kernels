@@ -251,22 +251,21 @@ bool Combinatorics::process_node(Combinatorics::Trie& trie,
 void Combinatorics::normalize_kernel(ublas::matrix<double >& kernel)
 {
   // set k(x, y) = k(x, y) / sqrt(k(x, x)k(y, y)), for all non-diagonal cells (x, y)
+
   for(int i = 0; i < kernel.size1(); i++)
     {
-      for(int j = 0; j < kernel.size2(); j++)
+      for(int j = i + 1; j < kernel.size2(); j++)
 	{
-	  if(j != i)
-	    {
-	      double quotient = std::sqrt(kernel(i,i)*kernel(j,j));
-	      kernel(i,j) /= (quotient > 0 ? quotient : 1);
-	    }
+	  double quotient = std::sqrt(kernel(i, i) * kernel(j, j));
+	  kernel(i, j) /= (quotient > 0 ? quotient : 1);
+	  kernel(j, i) = kernel(i, j);  // symmetry
 	}
     }
 
   // set k = 1 for all diagonal cells (x, x)
   for(int i = 0; i < kernel.size1(); i++)
     {
-      kernel(i,i) = 1;
+      kernel(i, i) = 1;
     }
 }
 
