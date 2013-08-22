@@ -5,7 +5,7 @@ Dependencies (only for C++ version)
 ===================================
 * cmake (the build tool)
 * doxygen (optional, except if you need to generate documentation)
-* boost (for the algebra invoked)
+* boost (for the algebra involved)
 
 
 Build (only C++ version)
