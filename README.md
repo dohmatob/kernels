@@ -1,5 +1,5 @@
 Kernels is a project on kernel methods (spectral string kernels, string mismatch kernels).
-It contains 2 implmentations: C++ and Pythonic.
+It only supports "Mismatch String Kernels" for the moment. I've made 2 implmentations: C++ and Pythonic.
 
 Dependencies (only for C++ version)
 ===================================
