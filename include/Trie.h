@@ -179,6 +179,14 @@ namespace Combinatorics
   bool is_root(const Trie& trie);
 
   /*!
+    Function to determine whether a given node is a leaf.
+
+    \param trie pointer to node
+    \return true if node is root, false otherwise
+  */
+  bool is_leaf(const Trie& trie);
+
+  /*!
     Function to compute meta-data of trie node.
 
     \param trie pointer to node
@@ -302,7 +310,7 @@ namespace Combinatorics
     Each line of the file must contain the same number of integers.
 
     \param filename filename containing dataset
-    \parem nrows number of rows (samples) to read from file
+    \param nrows number of rows (samples) to read from file
     \return loaded dataset
   */
   TrainingDataset load_training_dataset(const std::string& filename, unsigned int nrows);
@@ -317,6 +325,19 @@ namespace Combinatorics
     \return loaded dataset
   */
   TrainingDataset load_training_dataset(const std::string& filename);
+  
+  /*!
+    Function to dump leaf nodes of trie unto disk.
+  
+    \param trie pointer to Trie object
+    \param l alphabet size
+    \param k depth of expansion
+    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers
+    for which the j-mers are still considered 'similar')
+    \param output_filename output file to which leafs will be dumped
+  */
+  void save_leafs(const Trie&, unsigned int l, unsigned k, unsigned int m,
+    const std::string& output_filename);
 };
 
 #endif // TRIE_H

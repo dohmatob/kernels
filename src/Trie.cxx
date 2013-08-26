@@ -91,6 +91,12 @@ bool Combinatorics::is_root(const Combinatorics::Trie& trie)
 }
 
 
+bool Combinatorics::is_leaf(const Combinatorics::Trie& trie)
+{
+  return trie->children.empty();
+}
+
+
 void Combinatorics::destroy_trie(Combinatorics::Trie& trie)
 {
   if(trie)
@@ -456,7 +462,44 @@ Combinatorics::TrainingDataset Combinatorics::load_training_dataset(const std::s
 }
 
 
+void Combinatorics::save_leafs(const Combinatorics::Trie& trie, unsigned int l, unsigned int k,
+			       unsigned int m, const std::string& output_filename)
+{
+  if(Combinatorics::is_root(trie))
+    {
+      std::ofstream ofs(output_filename.c_str(), std::fstream::app);
 
+      ofs << "l=" << l << std::endl << "k=" << k << std::endl << "m=" << m << std::endl;
+      ofs.close();
+    }
 
+  std::ofstream ofs(output_filename.c_str(), std::fstream::app);
 
+  if(Combinatorics::is_leaf(trie) && trie->level == k)
+    {
 
+      ofs << trie->rootpath.str() << ":";
+      Combinatorics::TrieMetadata::const_iterator it = trie->metadata.begin(); 
+      while(it != trie->metadata.end())
+	{
+	  ofs << "(" << it->first << "," << it->second.size() << ")";
+	  it++;
+	  ofs << (it == trie->metadata.end() ? "" : ",");
+	}
+
+      ofs << std::endl; 
+    }
+
+  ofs.close();
+
+  for(std::map<int, Combinatorics::Trie>::const_iterator it = trie->children.begin();
+      it != trie->children.end(); it++)
+    {
+      save_leafs(it->second, l, k, m, output_filename);
+    }
+
+  if(Combinatorics::is_root(trie))
+    {
+      std::ofstream ofs(output_filename.c_str(), std::fstream::app);
+    }
+}

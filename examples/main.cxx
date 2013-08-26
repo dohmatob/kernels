@@ -49,11 +49,18 @@ int main(int argc, char *argv[])
   Combinatorics::normalize_kernel(kernel);
     
   // dump kernel unto disk
-  std::ofstream kernelfile;
-  kernelfile.open(argv[5]);
-  kernelfile << kernel;
-  kernelfile.close();
+  std::ofstream kern_ofs;
+  kern_ofs.open(argv[5]);
+  kern_ofs << kernel;
+  kern_ofs.close();
   std::cout << std::endl << "Mismatch string kernel written to " << argv[5] << std::endl;
+
+  // save model to disk
+  if(argc > 6)
+    {
+      save_leafs(trie, l, k, m, argv[6]);
+      std::cout << std::endl << "Mismatch string kernel model written to " << argv[6] << std::endl;
+    }
 
   return 0;
 }  

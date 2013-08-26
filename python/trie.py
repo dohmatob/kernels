@@ -117,6 +117,9 @@ class MismatchTrie(object):
 
         assert not child.label in self.children
 
+        child.verbose = self.verbose
+        child.display_summerized_kgrams = self.display_summerized_kgrams
+
         # initialize ngram data to that of parent
         child.kgrams = self.copy_kgrams()
 
@@ -150,13 +153,15 @@ class MismatchTrie(object):
         del self.children[label]
 
     def __str__(self):
+        kgrams_str = ""
+
         if self.is_empty():
             kgrams_str = '{DEADEND}'
         elif self.display_summerized_kgrams:
-            kgrams_str = '{%i}' % len(self.kgrams)
+            kgrams_str += '{%i}' % len(self.kgrams)
         else:
-            kgrams_str = str(dict((k, v.tolist())
-                                  for k, v in self.kgrams.iteritems()))
+            kgrams_str += str(dict((k, v.tolist())
+                                   for k, v in self.kgrams.iteritems()))
 
         return self.full_label + kgrams_str
 
@@ -283,7 +288,8 @@ class MismatchTrie(object):
                     kernel[i, j] += len(self.kgrams[i]) * len(self.kgrams[j])
 
     def traverse(self, training_data, l, k, m, kernel=None,
-                 kernel_update_callback=None, indentation=""):
+                 kernel_update_callback=None,
+                 indentation=""):
         """
         Traverses a node, expanding it to plausible descendants.
 
@@ -362,10 +368,7 @@ class MismatchTrie(object):
                         j + 1) == l else "|")
 
                     # bear child
-                    dskg = self.display_summerized_kgrams
-                    child = MismatchTrie(label=j, parent=self,
-                                         verbose=self.verbose,
-                                         display_summerized_kgrams=dskg)
+                    child = MismatchTrie(label=j, parent=self)
 
                     # traverse child
                     kernel, child_n_surviving_kmers, \
@@ -388,6 +391,25 @@ class MismatchTrie(object):
                     n_surviving_kmers, l ** k))
 
         return kernel, n_surviving_kmers, go_ahead
+
+    def __iter__(self):
+        """
+        Returns an iterator on the nodes of the trie.
+
+        """
+
+        yield self
+
+        for child in self.children.values():
+            for grandchild in child:
+                yield grandchild
+
+    def do_leafs(self, callback, **kwargs):
+        if self.is_leaf():
+            callback(self, **kwargs)
+
+        for child in self.children.values():
+            child.do_leafs(callback, **kwargs)
 
 
 def test_trie_constructor():
@@ -460,53 +482,53 @@ def test_traverse():
 
     nose.tools.assert_equal(n_surviving_kmers, 8)
 
-# demo
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
+# # demo
+# if __name__ == '__main__':
+#     import matplotlib.pyplot as plt
 
-    #####################
-    # data preperation
-    #####################
+#     #####################
+#     # data preperation
+#     #####################
 
-    # prepare train data
-    data = np.zeros((200, 18))
-    data[:30, :8] = 1
-    data[30:60, 6:14] = 1
-    data[60:, 10:] = 1
+#     # prepare train data
+#     data = np.zeros((200, 18))
+#     data[:30, :8] = 1
+#     data[30:60, 6:14] = 1
+#     data[60:, 10:] = 1
 
-    # add Bernoullian noise
-    data[np.random.rand() > .8] = 1
+#     # add Bernoullian noise
+#     data[np.random.rand() > .8] = 1
 
-    # instantiate MisMatchTrie object (for learning)
-    trie = MismatchTrie(display_summerized_kgrams=True)
+#     # instantiate MisMatchTrie object (for learning)
+#     trie = MismatchTrie(display_summerized_kgrams=True)
 
-    ####################
-    # kernel business
-    ####################
+#     ####################
+#     # kernel business
+#     ####################
 
-    # compute kernel
-    kern = trie.traverse(data, 2, 4, 0)[0]
-    kern = normalize_kernel(kern)
+#     # compute kernel
+#     kern = trie.traverse(data, 2, 4, 0)[0]
+#     kern = normalize_kernel(kern)
 
-    #############################
-    # visualization of results
-    #############################
+#     #############################
+#     # visualization of results
+#     #############################
 
-    plt.gray()
+#     plt.gray()
 
-    # plot train data as image
-    plt.imshow(data, origin='lower')
-    plt.title("train data")
+#     # plot train data as image
+#     plt.imshow(data, origin='lower')
+#     plt.title("train data")
 
-    # plot covariance matrix of train data as image
-    plt.figure()
-    plt.imshow(np.dot(data, data.T))
-    plt.title("Covariance matrix of train data")
+#     # plot covariance matrix of train data as image
+#     plt.figure()
+#     plt.imshow(np.dot(data, data.T))
+#     plt.title("Covariance matrix of train data")
 
-    # plot kernel
-    plt.figure()
-    plt.imshow(kern)
-    plt.title("Mismatch String Kernel learnt on train data")
+#     # plot kernel
+#     plt.figure()
+#     plt.imshow(kern)
+#     plt.title("Mismatch String Kernel learnt on train data")
 
-    # render graphics
-    plt.show()
+#     # render graphics
+#     plt.show()
