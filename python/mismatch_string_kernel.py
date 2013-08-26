@@ -237,7 +237,7 @@ class MismatchStringKernel(MismatchTrie):
 
         """
 
-        x = np.array(x)
+        x = np.array(x, dtype=np.int)
         if x.ndim == 1:
             return self._predict(x)
         else:
