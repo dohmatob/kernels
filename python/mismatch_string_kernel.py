@@ -11,6 +11,31 @@ import wrappers
 
 import numpy as np
 from sklearn.svm import SVC
+import re
+
+
+def unique_kmers(x, k):
+    x = list(x)
+
+    ukmers = []
+    offset = 0
+    seen_kmers = []
+    for offset in xrange(len(x) - k + 1):
+        kmer = x[offset:offset + k]
+
+        if kmer in seen_kmers:
+            continue
+        else:
+            seen_kmers.append(kmer)
+
+        count = 1
+        for _offset in xrange(offset + 1, len(x) - k + 1):
+            if np.all(x[_offset:_offset + k] == kmer):
+                count += 1
+
+        ukmers.append((kmer, count))
+
+    return ukmers
 
 
 class MismatchStringKernel(MismatchTrie):
@@ -51,7 +76,7 @@ class MismatchStringKernel(MismatchTrie):
         in case train labels `Y` were are provided during fitting, then
         and SVC (with precomputed kernel) will be fitted against the kernel
 
-    Examples
+     Examples
     --------
     >>> mmsk = MismatchStringKernel(model=wrappers.read_mmsk_model(
     ... '/tmp/leafs.txt', '/tmp/kernel.txt'))
@@ -99,7 +124,22 @@ class MismatchStringKernel(MismatchTrie):
         X: 2D array of shape (n_samples, n_features), or tuple (
         l, k, m, leafs, kernel), where:
             `l`, `k`, and `m`: the parameters of the (precomputed) trie;
-            `leafs`: a dictionary of leafs of the trie
+            `leafs`: a dictionary of leafs of the trie, of the form
+                {'[0][14][10][15][10][0]': {146: 1},
+                '[0][8][0][0][0][1]': {36: 3, 40: 2},
+                '[11][0][0][2][0][0]': {48: 1},
+                '[12][0][0][0][5][15]': {128: 1},
+                '[13][14][7][7][6][1]': {56: 1},
+                '[3][0][2][12][15][6]': {63: 1, 74: 1},
+                '[4][0][6][0][0][7]': {88: 1},
+                '[6][15][0][0][6][0]': {44: 1},
+                '[6][5][6][12][6][4]': {32: 1},
+                '[8][5][15][6][4][6]': {36: 1, 40: 1}},
+                where each key corresponds to the full_label/rootpath of a leaf
+                node (beta), and each value is a dict whose keys are the
+                indices of the train sample point that are beta-similar, the
+                values of this subdicts being weight of the leaf beta in the
+                corresponding training sample point
             `kernel`: a 2D array of shape (n_samples, n_samples), representing
             precomputed kernel
             training data/model for the kernel
@@ -126,11 +166,23 @@ class MismatchStringKernel(MismatchTrie):
             # self.leaf_kgrams, and self.kernel_
         else:
             # traverse/build trie proper
+            for x in ['l', 'k', 'm']:
+                if not hasattr(self, x):
+                    raise RuntimeError(
+                        ("'%s' not specified during object initialization."
+                         "You must now specify complete model (tuple of l, "
+                         "k, m, leafs, and, kernel).") % x)
             self.kernel_, _, _ = self.traverse(
                 X, self.l, self.k, self.m, **kwargs)
 
             # normalize kernel
             self.kernel_ = normalize_kernel(self.kernel_)
+
+            # gatther up the leafs
+            self.leaf_kgrams_ = dict((leaf.full_label,
+                                      dict((index, len(kgs)) for index, kgs
+                                           in leaf.kgrams.iteritems()))
+                                     for leaf in self.leafs())
 
         # fit SVC
         if not Y is None:
@@ -147,28 +199,29 @@ class MismatchStringKernel(MismatchTrie):
 
         """
 
-        xstr = ''.join(['[%s]' % a for a in x])
         kv = np.zeros(len(self.svc_.support_))
 
-        # scan through all k-grams/mers of test string
-        seen_kmers = []  # k-mers we've already seen in this test string
-        for i in xrange(len(x) - self.k + 1):
-            kmer = ('[%s]' * self.k) % tuple(x[i:i + self.k])
-            if kmer in seen_kmers:
-                continue
-
-            seen_kmers.append(kmer)
+        # scan through all (unique) k-grams/mers of x
+        for kmer, count1 in unique_kmers(x, self.k):
+            # vec2str
+            kmer = ('[%s]' * self.k) % tuple(kmer)
             if kmer in self.leaf_kgrams_:
                 for j in xrange(len(self.svc_.support_)):
                     if self.svc_.support_[j] in self.leaf_kgrams_[kmer]:
+
+                        # retrieve the number of times this kmer appears
+                        # in jth support vector
                         kgrams = self.leaf_kgrams_[kmer][self.svc_.support_[j]]
-                        count = len(kgrams) if isinstance(
-                            kgrams, list) else kgrams
-                        kv[j] += np.exp(-(count + xstr.count(kmer)))
+                        count2 = len(kgrams) if isinstance(kgrams,
+                                                           list) else kgrams
+
+                        # update kv entry for jth support vector
+                        kv[j] += np.exp(-(count1 + count2))
 
         # scaling: correct for variance
-        kv = kv / kv.std()
+        kv = kv / kv.var()
 
+        # done
         return kv
 
     def _predict(self, x):
@@ -212,7 +265,7 @@ class MismatchStringKernel(MismatchTrie):
                 coeff1 = self.svc_.dual_coef_[j - 1]
                 coeff2 = self.svc_.dual_coef_[i]
 
-                # voting
+                # do voting
                 for k in xrange(ci):
                     s += coeff1[si + k] * kvalue[si + k]
 
@@ -233,7 +286,7 @@ class MismatchStringKernel(MismatchTrie):
 
     def predict(self, x):
         """
-        Predicts the label of the test vector x.
+        Predicts the label of the test vector or list of test vectors, x
 
         """
 
@@ -257,10 +310,10 @@ if __name__ == '__main__':
     # load data
     X = np.loadtxt(os.path.abspath(os.path.join(
                 os.path.dirname(os.path.dirname(sys.argv[0])),
-                '/tmp/pkts.txt')), dtype=np.int)
+                'data/hack_data.txt')), dtype=np.int)
     Y = np.loadtxt(os.path.abspath(os.path.join(
                 os.path.dirname(os.path.dirname(sys.argv[0])),
-                '/tmp/labels.txt')), dtype=np.int)
+                'data/hack_data_labels.txt')), dtype=np.int)
 
     # prepare for visualization
     plt.gray()  # only gray scale
@@ -293,33 +346,22 @@ if __name__ == '__main__':
         kern_fig.canvas.draw()
 
     print "Computing Mismatch String Kernel..."
-    import wrappers
-    # kernel = wrappers.load_boost_array("/tmp/k.txt")
+    l = 16  # alphabet size
     k = 4  # trie depth
-    d = 16  # alphabet size
     m = 0   # maximum allowable mismatch for 'similar' k-mers
-    mmsk = MismatchStringKernel(d, k, m)
-    kernel = mmsk.fit(X, kernel_update_callback=_update_kernel_plot).kernel_
+    mmsk = MismatchStringKernel(l, k, m, verbose=1).fit(
+        X, Y=Y, kernel_update_callback=_update_kernel_plot)
     print "...done."
-    print "\r\nKernel:\r\n%s\r\n" % kernel
+    print "\r\nKernel:\r\n%s\r\n" % mmsk.kernel_
 
-    # construct SVM classifier with our mismatch string kernel
-    from sklearn.svm import SVC
-
-    print ("Constructing SVM classifier with our precomputed "
-           "mismatch string kernel...")
-    svc = SVC(kernel='precomputed')
-    print '...done; %s\r\n' % svc
-
-    # fit
-    print "Fitting SVM against training data..."
-    svc.fit(kernel, Y)
+    # prediction on train data
+    print "Prediction on train data..."
     print "...done; fitting accuracy: %.2f%s.\r\n" % (
-        (svc.predict(kernel) == Y).sum() * 100. / len(Y), "%")
+        (mmsk.predict(X) == Y).sum() * 100. / len(Y), "%")
 
     # save kernel plot
     plt.ioff()  # exit interactive mode
-    _update_kernel_plot(kernel)
+    _update_kernel_plot(mmsk.kernel_)
     plt.savefig("kernel.png", bbox_inches="tight", dpi=200, facecolor="k",
                 edgecolor="k")
 

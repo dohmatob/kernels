@@ -404,6 +404,11 @@ class MismatchTrie(object):
             for grandchild in child:
                 yield grandchild
 
+    def leafs(self):
+        for leaf in self:
+            if leaf.is_leaf():
+                yield leaf
+
     def do_leafs(self, callback, **kwargs):
         if self.is_leaf():
             callback(self, **kwargs)
@@ -482,53 +487,53 @@ def test_traverse():
 
     nose.tools.assert_equal(n_surviving_kmers, 8)
 
-# # demo
-# if __name__ == '__main__':
-#     import matplotlib.pyplot as plt
+# demo
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
 
-#     #####################
-#     # data preperation
-#     #####################
+    #####################
+    # data preperation
+    #####################
 
-#     # prepare train data
-#     data = np.zeros((200, 18))
-#     data[:30, :8] = 1
-#     data[30:60, 6:14] = 1
-#     data[60:, 10:] = 1
+    # prepare train data
+    data = np.zeros((200, 18))
+    data[:30, :8] = 1
+    data[30:60, 6:14] = 1
+    data[60:, 10:] = 1
 
-#     # add Bernoullian noise
-#     data[np.random.rand() > .8] = 1
+    # add Bernoullian noise
+    data[np.random.rand() > .8] = 1
 
-#     # instantiate MisMatchTrie object (for learning)
-#     trie = MismatchTrie(display_summerized_kgrams=True)
+    # instantiate MisMatchTrie object (for learning)
+    trie = MismatchTrie(display_summerized_kgrams=True)
 
-#     ####################
-#     # kernel business
-#     ####################
+    ####################
+    # kernel business
+    ####################
 
-#     # compute kernel
-#     kern = trie.traverse(data, 2, 4, 0)[0]
-#     kern = normalize_kernel(kern)
+    # compute kernel
+    kern = trie.traverse(data, 2, 4, 0)[0]
+    kern = normalize_kernel(kern)
 
-#     #############################
-#     # visualization of results
-#     #############################
+    #############################
+    # visualization of results
+    #############################
 
-#     plt.gray()
+    plt.gray()
 
-#     # plot train data as image
-#     plt.imshow(data, origin='lower')
-#     plt.title("train data")
+    # plot train data as image
+    plt.imshow(data, origin='lower')
+    plt.title("train data")
 
-#     # plot covariance matrix of train data as image
-#     plt.figure()
-#     plt.imshow(np.dot(data, data.T))
-#     plt.title("Covariance matrix of train data")
+    # plot covariance matrix of train data as image
+    plt.figure()
+    plt.imshow(np.dot(data, data.T))
+    plt.title("Covariance matrix of train data")
 
-#     # plot kernel
-#     plt.figure()
-#     plt.imshow(kern)
-#     plt.title("Mismatch String Kernel learnt on train data")
+    # plot kernel
+    plt.figure()
+    plt.imshow(kern)
+    plt.title("Mismatch String Kernel learnt on train data")
 
-#     # render graphics
-#     plt.show()
+    # render graphics
+    plt.show()
