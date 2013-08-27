@@ -196,22 +196,26 @@ namespace Combinatorics
   void compute_metadata(Trie& trie, int k, TrainingDataset& training_dataset);
 
   /*!
-    Function to trim-off all kgrams of a training sequence that have have hit the mismatch tolerance.
+    Function to trim-off all kgrams of a training sequence that have have hit
+    the mismatch tolerance.
 
     \param trie pointer to node under inspection
     \param kgrams reference to Kgrams object under inspection
     \param index of the training sequence as a member in the training pool
-    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
+    \param m mismatch tolerance (i.e, maximum number number of differences between
+    two j-mers for which the j-mers are still considered 'similar')
     \param training_dataset bail of training sequences
   */
   void trim_bad_kgrams(Trie& trie, int index, int m, TrainingDataset& training_dataset);
 
   /*!
-    Function to recompute the meta-data of a node, and determine whether it's worth exploring further down.
+    Function to recompute the meta-data of a node, and determine whether it's
+    worth exploring further down.
 
     \param trie pointer to node under inspection
     \param k depth of the target trie
-    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
+    \param m mismatch tolerance (i.e, maximum number number of differences between
+    two j-mers for which the j-mers are still considered 'similar')
     \param training_dataset bail of training sequences
   */    
   bool process_node(Trie& trie, int k, int m, TrainingDataset& training_dataset);
@@ -220,7 +224,8 @@ namespace Combinatorics
     Function for updating the mismatch kernel, once a k-mer is reached.
 
     \param trie pointer to k-mer node under inspection
-    \param m mismatch tolerance (i.e, maximum number number of differences between two j-mers for which the j-mers are still considered 'similar')
+    \param m mismatch tolerance (i.e, maximum number number of differences between two
+    j-mers for which the j-mers are still considered 'similar')
     \param kernel a reference to the mismatch kernel
   */
   void update_kernel(Trie& trie, int m, ublas::matrix<double >& kernel);
@@ -247,10 +252,11 @@ namespace Combinatorics
 
     \return number of surviving k-mers
   */
-  int traverse(Trie& trie, int l, int k, int m, TrainingDataset& training_dataset, ublas::matrix<double >& kernel, std::string& indentation);
+  int traverse_trie(Trie& trie, int l, int k, int m, TrainingDataset& training_dataset,
+		    ublas::matrix<double >& kernel, std::string& indentation);
 
   /*!
-    An overloading of traverse(..).
+    An overloading of traverse_trie(..).
 
     \param trie pointer to node to be expanded
     \param k depth of expansion
@@ -262,8 +268,8 @@ namespace Combinatorics
 
     \return number of surviving k-mers
   */
-  int traverse(Trie& trie, int l, int k, int m, TrainingDataset& training_dataset,
-	       ublas::matrix<double >& kernel);
+  int traverse_trie(Trie& trie, int l, int k, int m, TrainingDataset& training_dataset,
+		    ublas::matrix<double >& kernel);
   
   /*!
     Overloading of operator<< for Kgram.
@@ -338,6 +344,21 @@ namespace Combinatorics
   */
   void save_leafs(const Trie&, unsigned int l, unsigned k, unsigned int m,
     const std::string& output_filename);
+
+  /*!
+    Function to display trie.
+
+    \param trie pointer to node to be expanded
+    \param indentation a control string used in displaying the node
+  */
+  void display_trie(const Trie& trie, std::string& indentation);
+
+  /*!
+    Function to display trie.
+
+    \param trie pointer to node to be expanded
+  */
+  void display_trie(const Trie& trie);
 };
 
 #endif // TRIE_H

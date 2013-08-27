@@ -46,7 +46,7 @@ class MismatchTrie(object):
     """
 
     def __init__(self, label=None, parent=None, verbose=1,
-                 display_summerized_kgrams=False):
+                 display_summarized_kgrams=False):
         """
         label: int, optional (default None)
             node label
@@ -54,14 +54,14 @@ class MismatchTrie(object):
             node's parent
         verbose: int, optional (default 1)
             controls amount of verbosity (0 for no verbosity)
-        display_summerize_kgrams: boolean, optional (default False)
-            only display summerized version of kgrams
+        display_summarized_kgrams: boolean, optional (default False)
+            only display summarized version of kgrams
         """
 
         self.label = label  # label on edge connecting this node to its parent
         self.level = 0  # level of this node beyond the root node
         self.verbose = verbose
-        self.display_summerized_kgrams = display_summerized_kgrams
+        self.display_summarized_kgrams = display_summarized_kgrams
         self.children = {}  # children of this node
 
         # concatenation of all labels of nodes from root node to this node
@@ -118,7 +118,7 @@ class MismatchTrie(object):
         assert not child.label in self.children
 
         child.verbose = self.verbose
-        child.display_summerized_kgrams = self.display_summerized_kgrams
+        child.display_summarized_kgrams = self.display_summarized_kgrams
 
         # initialize ngram data to that of parent
         child.kgrams = self.copy_kgrams()
@@ -157,7 +157,7 @@ class MismatchTrie(object):
 
         if self.is_empty():
             kgrams_str = '{DEADEND}'
-        elif self.display_summerized_kgrams:
+        elif self.display_summarized_kgrams:
             kgrams_str += '{%i}' % len(self.kgrams)
         else:
             kgrams_str += str(dict((k, v.tolist())
@@ -165,13 +165,13 @@ class MismatchTrie(object):
 
         return self.full_label + kgrams_str
 
-    def log(self, msg):
+    def log(self, msg, verbose=0):
         """
         Logs a msg (according to verbosity level).
 
         """
 
-        if self.verbose:
+        if self.verbose or verbose:
             print msg
 
     def compute_kgrams(self, training_data, k):
@@ -409,12 +409,25 @@ class MismatchTrie(object):
             if leaf.is_leaf():
                 yield leaf
 
-    def do_leafs(self, callback, **kwargs):
-        if self.is_leaf():
-            callback(self, **kwargs)
+    def display(self, indentation=""):
+        # display the node
+        if self.is_root():
+            self.log("//\r\n \\")
+        else:
+            self.log(indentation[:-1] + "+-" + str(self))
 
-        for child in self.children.values():
-            child.do_leafs(callback, **kwargs)
+        # recursively bear and display child nodes
+        indentation += " "
+        l = len(self.children)
+        for j in xrange(l):
+            # indentation for child display
+            self.log(indentation + "|")
+            child_indentation = indentation + (" " if (
+                    j + 1) == l else "|")
+
+            # display child
+            self.children[self.children.keys()[j]].display(
+                indentation=child_indentation)
 
 
 def test_trie_constructor():
@@ -505,7 +518,7 @@ if __name__ == '__main__':
     data[np.random.rand() > .8] = 1
 
     # instantiate MisMatchTrie object (for learning)
-    trie = MismatchTrie(display_summerized_kgrams=True)
+    trie = MismatchTrie(display_summarized_kgrams=True)
 
     ####################
     # kernel business

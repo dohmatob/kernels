@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE(test_traverse)
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(training_dataset.size1(),
 							      training_dataset.size1());
 
-  int nkmers = traverse(trie, 2, 4, 0, training_dataset, kernel);
+  int nkmers = traverse_trie(trie, 2, 4, 0, training_dataset, kernel);
 
   BOOST_CHECK_EQUAL(nkmers, 8);
 }
@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_CASE(test_digits_data)
   ublas::matrix<double > kernel = ublas::zero_matrix<double >(n_samples, n_samples);
 				     
   // fit
-  int nkmers = traverse(trie, l, k, m, training_dataset, kernel);
+  int nkmers = traverse_trie(trie, l, k, m, training_dataset, kernel);
   
   // normalize kernel to remove the 'bias of length'
   Combinatorics::normalize_kernel(kernel);

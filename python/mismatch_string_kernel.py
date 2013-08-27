@@ -94,8 +94,8 @@ class MismatchStringKernel(MismatchTrie):
 
         if not None in [l, k, m]:
             # don't be too chatty
-            if not "display_summerized_kgrams" in kwargs:
-                kwargs["display_summerized_kgrams"] = True
+            if not "display_summarized_kgrams" in kwargs:
+                kwargs["display_summarized_kgrams"] = True
 
             # invoke trie.MismatchTrie constructor
             MismatchTrie.__init__(self, **kwargs)

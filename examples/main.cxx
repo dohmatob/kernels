@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 				     
   // estimate kernel (fit)
   printf("l = %i, k = %i, m = %i\r\n\r\n", l, k, m);
-  int nkmers = traverse(trie, l, k, m, training_dataset, kernel);
+  int nkmers = traverse_trie(trie, l, k, m, training_dataset, kernel);
   
   // normalize kernel to remove the 'bias of length'
   Combinatorics::normalize_kernel(kernel);

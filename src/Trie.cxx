@@ -1,5 +1,5 @@
 /*!
-  \file TRie.Cxx
+  \file Trie.cxx
   \author DOHMATOB Elvis Dopgima
   \brief Implementation of Trie.h header file.
 */
@@ -318,12 +318,12 @@ std::ostream& Combinatorics::operator<<(std::ostream& cout,
 }
 
 
-int Combinatorics::traverse(Combinatorics::Trie& trie, 
-			    int l, 
-			    int k, 
-			    int m, 
-			    Combinatorics::TrainingDataset& training_dataset,
-			    ublas::matrix<double >& kernel, 
+int Combinatorics::traverse_trie(Combinatorics::Trie& trie, 
+				 int l, 
+				 int k, 
+				 int m, 
+				 Combinatorics::TrainingDataset& training_dataset,
+				 ublas::matrix<double >& kernel, 
 			    std::string& indentation)
 {
   int nkmers = 0;
@@ -365,8 +365,8 @@ int Combinatorics::traverse(Combinatorics::Trie& trie,
 
 	      // bear new child with label j and expand it
 	      create_trienode(j, trie);
-	      nkmers += traverse(trie->children[j], l, k - 1, m, training_dataset,
-				 kernel, child_indentation);
+	      nkmers += traverse_trie(trie->children[j], l, k - 1, m, training_dataset,
+				      kernel, child_indentation);
 	    }
 	}
     }
@@ -387,18 +387,17 @@ int Combinatorics::traverse(Combinatorics::Trie& trie,
 }
 
 
-int Combinatorics::traverse(Combinatorics::Trie& trie, 
-			    int l, 
-			    int k, 
-			    int m, 
-			    Combinatorics::TrainingDataset& training_dataset,
-			    ublas::matrix<double >& kernel)
+int Combinatorics::traverse_trie(Combinatorics::Trie& trie, 
+				 int l, 
+				 int k, 
+				 int m, 
+				 Combinatorics::TrainingDataset& training_dataset,
+				 ublas::matrix<double >& kernel)
 {
-  // intantiate indentation
-  std::string indentation(" ");
+  std::string indentation("");
 
   // delegate to other version
-  return traverse(trie, l, k, m, training_dataset, kernel, indentation);
+  return traverse_trie(trie, l, k, m, training_dataset, kernel, indentation);
 }
    
 
@@ -501,5 +500,38 @@ void Combinatorics::save_leafs(const Combinatorics::Trie& trie, unsigned int l, 
   if(Combinatorics::is_root(trie))
     {
       std::ofstream ofs(output_filename.c_str(), std::fstream::app);
+    }
+}
+
+void Combinatorics::display_trie(const Combinatorics::Trie& trie)
+{
+  std::string indentation("");
+  display_trie(trie, indentation);
+}
+
+void Combinatorics::display_trie(const Combinatorics::Trie& trie, std::string& indentation)
+{
+  // display this node
+  if(is_root(trie))
+    {
+      std::cout << "//\r\n \\" << std::endl;
+    }
+  else
+    {
+      std::cout << indentation.substr(0, indentation.length() - 1) + "+-" << trie << std::endl;
+    }
+
+  indentation += " ";
+  // recursively expand all children nodes
+  unsigned int child_count = 0;
+  for(std::map<int, Combinatorics::Trie>::const_iterator it = trie->children.begin();
+      it != trie->children.end(); it++)
+    {
+      std::cout << indentation + "|" << std::endl;
+      std::string child_indentation(indentation);
+      child_indentation += (child_count + 1 == trie->children.size()) ? " " : "|";
+      display_trie(it->second, child_indentation);
+
+      child_count++;
     }
 }
